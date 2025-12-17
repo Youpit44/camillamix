@@ -10,6 +10,15 @@ Fonctionnalités requises:
 4. Affichage en temps réel des niveaux audio.
 5. Support pour plusieurs canaux audio.
 6. Gestion des presets de mixage.
+7. Fonctionnalité de mute et solo pour chaque canal.
+8. Interface utilisateur en français.
+9. Système de logs pour suivre les actions de mixage.
+10. interface responsive pour s'adapter à différentes tailles de terminal.
+11. interface doit permettre de visualiser les modifications en temps réel.
+12. Doit inclure une fonctionnalité de réinitialisation des paramètres de mixage aux valeurs par défaut.
+13. Doit permettre l'importation et l'exportation des configurations de mixage au format JSON ou XML.
+14. interface similaire au table de mixage genre numark
+
 
 Technologies suggérées:
 - Python 3
@@ -43,4 +52,3 @@ Contraintes:
 17. Doit inclure une fonctionnalité de visualisation des ondes audio pour chaque canal.
 18. L'interface doit avoir le visuel très proche d'une vraie table de mixage audio physique.
 19. Doit fonctionner sur raspberry pi 5 sous gentooplayer.
-
