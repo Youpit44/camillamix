@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "state": {
+    "channels": [
+      {
+        "index": 0,
+        "level_db": 0.0,
+        "mute": false,
+        "solo": false,
+        "eq": {
+          "low": 0.0,
+          "high": 0.0
+        }
+      },
+      {
+        "index": 1,
+        "level_db": 0.0,
+        "mute": false,
+        "solo": false,
+        "eq": {
+          "low": 0.0,
+          "high": 0.0
+        }
+      },
+      {
+        "index": 2,
+        "level_db": 0.0,
+        "mute": false,
+        "solo": false,
+        "eq": {
+          "low": 0.0,
+          "high": 0.0
+        }
+      },
+      {
+        "index": 3,
+        "level_db": 0.0,
+        "mute": false,
+        "solo": false,
+        "eq": {
+          "low": 0.0,
+          "high": 0.0
+        }
+      },
+      {
+        "index": 4,
+        "level_db": 0.0,
+        "mute": false,
+        "solo": false,
+        "eq": {
+          "low": 0.0,
+          "high": 0.0
+        }
+      },
+      {
+        "index": 5,
+        "level_db": 0.0,
+        "mute": false,
+        "solo": false,
+        "eq": {
+          "low": 0.0,
+          "high": 0.0
+        }
+      },
+      {
+        "index": 6,
+        "level_db": 0.0,
+        "mute": false,
+        "solo": false,
+        "eq": {
+          "low": 0.0,
+          "high": 0.0
+        }
+      },
+      {
+        "index": 7,
+        "level_db": 0.0,
+        "mute": false,
+        "solo": false,
+        "eq": {
+          "low": 0.0,
+          "high": 0.0
+        }
+      }
+    ]
+  }
+}

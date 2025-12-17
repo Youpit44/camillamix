@@ -1,21 +1,22 @@
-# CamillaMix (Prototype)
+CamillaMixer (Web)
+===================
 
-Interface web de mixage temps réel pour CamillaDSP — prototype.
+Interface web minimale pour piloter CamillaDSP (prototype).
 
-Prérequis
-- Python 3.10+
-- Installer les dépendances:
+Caractéristiques:
+- Backend Python (aiohttp) servant une interface web statique
+- WebSocket pour commandes en temps réel (faders, mute/solo)
+- Presets JSON (save/load)
+- UI en français, 8 canaux par défaut
+
+Installation rapide:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate   # ou .venv\\Scripts\\activate sur Windows
+pip install -r requirements.txt
+python backend/server.py
+# Ouvrir http://localhost:8080
 ```
 
-Lancer en développement
-
-```bash
-./run_dev.sh
-# ou sous Windows
-run_dev.bat
-```
-
-Ouvrir http://localhost:8000/ dans votre navigateur.
+Voir `docs/INSTALL.md` pour plus de détails.

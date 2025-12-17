@@ -1,9 +1,0 @@
-[build-system]
-requires = ["setuptools>=42","wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "camillamix"
-version = "0.1.0"
-description = "Web mixer UI for CamillaDSP - prototype"
-authors = [ { name = "", email = "" } ]
