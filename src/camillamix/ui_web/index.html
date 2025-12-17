@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CamillaMix - Table de mixage</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>CamillaMix</h1>
+    <div class="header-right">
+      <label class="theme-toggle">Thème <input id="themeToggle" type="checkbox" /></label>
+    </div>
+  </header>
+
+  <main>
+    <section id="mixerSection" aria-label="Mixer">
+      <div id="mixer" class="mixer" role="application" aria-label="Table de mixage"></div>
+
+      <!-- Master strip is kept in markup as reference -->
+      <div id="master" class="channel master" aria-label="Master strip">
+        <div class="ch-top">
+          <div class="vu-vert" data-master>
+            <!-- segments injected by CSS/JS -->
+          </div>
+          <div class="fader-wrap master-wrap">
+            <input class="fader master-fader" type="range" min="0" max="100" value="85" />
+            <div class="level-num">0.85</div>
+          </div>
+        </div>
+        <div class="ch-bottom">
+          <div class="ch-name"><input value="Master" /></div>
+          <div class="controls">
+            <button class="btn">Mute</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside id="sidebar" aria-label="Sidebar">
+      <div id="presets" class="card">
+        <h2>Presets</h2>
+        <div id="presetList"></div>
+        <input id="presetName" placeholder="Nom du preset" />
+        <div class="preset-actions">
+          <button id="savePreset" class="btn">Sauvegarder</button>
+          <button id="loadPreset" class="btn">Charger</button>
+          <button id="deletePreset" class="btn">Supprimer</button>
+        </div>
+      </div>
+      <div id="log" aria-live="polite" class="card"></div>
+    </aside>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

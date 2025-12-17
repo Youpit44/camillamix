@@ -1,0 +1,4 @@
+# dépendances Python minimales (version wheel si possible)
+aiohttp>=3.8
+websockets>=11.0
+python-dotenv>=1.0
