@@ -1,5 +1,6 @@
 aiohttp>=3.8
 pytest>=7.0
+pytest-asyncio>=0.20.0
 PyYAML>=6.0
 # Optional: uncomment if available in your environment
 # pycamilladsp>=0.1

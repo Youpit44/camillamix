@@ -13692,3 +13692,120 @@ asyncio.exceptions.InvalidStateError: invalid state
 2025-12-18 16:19:46,361 INFO server: autosaved preset
 2025-12-18 16:20:16,374 INFO server: autosaved preset
 2025-12-18 16:20:32,492 INFO server: WebSocket client disconnected
+2025-12-18 16:38:14,402 INFO camilla_adapter: pycamilladsp not installed; skipping direct CamillaDSP control
+2025-12-18 16:38:14,403 INFO camilla_adapter: CamillaAdapter running in stub/py mode (no CAMILLA_WS_URL)
+2025-12-18 16:38:20,725 INFO aiohttp.access: 127.0.0.1 [18/Dec/2025:16:38:20 +0100] "GET / HTTP/1.1" 200 237 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+2025-12-18 16:38:20,744 INFO aiohttp.access: 127.0.0.1 [18/Dec/2025:16:38:20 +0100] "GET /app.js?v=22 HTTP/1.1" 200 245 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+2025-12-18 16:38:20,749 INFO aiohttp.access: 127.0.0.1 [18/Dec/2025:16:38:20 +0100] "GET /style.css?v=2 HTTP/1.1" 200 237 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+2025-12-18 16:38:20,764 INFO aiohttp.access: 127.0.0.1 [18/Dec/2025:16:38:20 +0100] "GET /api/presets HTTP/1.1" 200 208 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+2025-12-18 16:38:21,070 INFO server: WebSocket client connected
+2025-12-18 16:38:44,408 INFO server: autosaved preset
+2025-12-18 16:39:14,419 INFO server: autosaved preset
+2025-12-18 16:39:44,424 INFO server: autosaved preset
+2025-12-18 16:40:14,439 INFO server: autosaved preset
+2025-12-18 16:40:16,462 INFO server: WebSocket client disconnected
+2025-12-18 16:40:16,463 ERROR aiohttp.server: Unhandled exception
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web.py", line 517, in run_app
+    loop.run_until_complete(main_task)
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 673, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 640, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1992, in _run_once
+    handle._run()
+  File "/usr/lib/python3.12/asyncio/events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_runner.py", line 40, in _raise_graceful_exit
+    raise GracefulExit()
+aiohttp.web_runner.GracefulExit
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_protocol.py", line 510, in _handle_request
+    resp = await request_handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_app.py", line 569, in _handle
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/S2E0194/develop/IA/camillamix/backend/server.py", line 62, in websocket_handler
+    async for msg in ws:
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_ws.py", line 620, in __anext__
+    msg = await self.receive()
+          ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_ws.py", line 545, in receive
+    msg = await self._reader.read()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "aiohttp/_websocket/reader_c.py", line 118, in read
+  File "aiohttp/_websocket/reader_c.py", line 115, in aiohttp._websocket.reader_c.WebSocketDataQueue.read
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_protocol.py", line 602, in start
+    resp, reset = await task
+                  ^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_protocol.py", line 539, in _handle_request
+    self._handler_waiter.set_result(None)
+asyncio.exceptions.InvalidStateError: invalid state
+2025-12-18 16:40:16,471 ERROR asyncio: unhandled exception during asyncio.run() shutdown
+task: <Task finished name='Task-17' coro=<RequestHandler._handle_request() done, defined at /usr/local/lib/python3.12/site-packages/aiohttp/web_protocol.py:500> exception=InvalidStateError('invalid state')>
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web.py", line 517, in run_app
+    loop.run_until_complete(main_task)
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 673, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 640, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1992, in _run_once
+    handle._run()
+  File "/usr/lib/python3.12/asyncio/events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_runner.py", line 40, in _raise_graceful_exit
+    raise GracefulExit()
+aiohttp.web_runner.GracefulExit
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_protocol.py", line 510, in _handle_request
+    resp = await request_handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_app.py", line 569, in _handle
+    return await handler(request)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/S2E0194/develop/IA/camillamix/backend/server.py", line 62, in websocket_handler
+    async for msg in ws:
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_ws.py", line 620, in __anext__
+    msg = await self.receive()
+          ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_ws.py", line 545, in receive
+    msg = await self._reader.read()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "aiohttp/_websocket/reader_c.py", line 118, in read
+  File "aiohttp/_websocket/reader_c.py", line 115, in aiohttp._websocket.reader_c.WebSocketDataQueue.read
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_protocol.py", line 602, in start
+    resp, reset = await task
+                  ^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/aiohttp/web_protocol.py", line 539, in _handle_request
+    self._handler_waiter.set_result(None)
+asyncio.exceptions.InvalidStateError: invalid state
+2025-12-18 16:40:18,957 INFO camilla_adapter: pycamilladsp not installed; skipping direct CamillaDSP control
+2025-12-18 16:40:18,958 INFO camilla_adapter: CamillaAdapter running in stub/py mode (no CAMILLA_WS_URL)
+2025-12-18 16:40:23,253 INFO aiohttp.access: 127.0.0.1 [18/Dec/2025:16:40:23 +0100] "GET / HTTP/1.1" 200 237 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+2025-12-18 16:40:23,285 INFO aiohttp.access: 127.0.0.1 [18/Dec/2025:16:40:23 +0100] "GET /app.js?v=23 HTTP/1.1" 200 245 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+2025-12-18 16:40:23,289 INFO aiohttp.access: 127.0.0.1 [18/Dec/2025:16:40:23 +0100] "GET /style.css?v=2 HTTP/1.1" 200 237 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+2025-12-18 16:40:23,305 INFO aiohttp.access: 127.0.0.1 [18/Dec/2025:16:40:23 +0100] "GET /api/presets HTTP/1.1" 200 208 "http://localhost:8080/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+2025-12-18 16:40:23,614 INFO server: WebSocket client connected
+2025-12-18 16:40:48,969 INFO server: autosaved preset
+2025-12-18 16:41:18,986 INFO server: autosaved preset
+2025-12-18 16:41:48,995 INFO server: autosaved preset
+2025-12-18 16:42:19,011 INFO server: autosaved preset
+2025-12-18 16:42:37,784 INFO server: WebSocket client disconnected

@@ -4,6 +4,7 @@ let autosaveEnabled = false;
 let autosaveInterval = 30;
 let optionsModal = null;
 let camillaStatus = {connected: false, ws_connected: false, tcp_connected: false};
+let masterSpectrum = null;
 
 // debug overlay (dev only) activable via UI
 let debugEnabled = false;
@@ -222,6 +223,36 @@ function createKnob(label, initialValue, min, max, color, onChange) {
   wrap._getValue = function() { return currentValue; };
 
   return wrap;
+}
+
+function createSpectrumVisualizer(count = 28) {
+  const wrap = document.createElement('div');
+  wrap.className = 'spectrum';
+  const bars = [];
+  for (let i = 0; i < count; i++) {
+    const b = document.createElement('div');
+    b.className = 'spectrum-bar';
+    b.style.height = '10%';
+    bars.push(b);
+    wrap.appendChild(b);
+  }
+  let target = 0; // 0..1
+  let current = 0;
+  function update(db) {
+    const clamped = Math.max(-60, Math.min(12, typeof db === 'number' ? db : -60));
+    target = (clamped + 60) / 72;
+  }
+  function tick() {
+    current += (target - current) * 0.18;
+    bars.forEach((b, idx) => {
+      const wobble = (Math.sin((performance.now() / 140) + idx * 0.7) * 0.5 + 0.5) * 0.5;
+      const h = Math.max(0.05, Math.min(1, current * (0.65 + wobble)));
+      b.style.height = (h * 100).toFixed(1) + '%';
+    });
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+  return { element: wrap, update };
 }
 
 function createMasterSection() {
@@ -767,6 +798,9 @@ function updateLevels(levels) {
       if (masterVu){
         masterVu.style.height = Math.max(0, Math.min(100, pct)) + '%';
       }
+      if (masterSpectrum && typeof masterSpectrum.update === 'function') {
+        masterSpectrum.update(avgDb);
+      }
     }
   }catch(e){ console.error(e) }
 }
@@ -1077,6 +1111,14 @@ function maybeSend(vslider, obj){
 }
 
 function init() {
+  // Créer et afficher le visualiseur spectrum en haut
+  const spectrumContainer = document.getElementById('spectrumContainer');
+  if (spectrumContainer) {
+    const spectrum = createSpectrumVisualizer(28);
+    spectrumContainer.appendChild(spectrum.element);
+    masterSpectrum = spectrum;
+  }
+
   ws = new WebSocket(WS_URL);
   ws.addEventListener('open', ()=>{
     updateStatusBar(true, camillaStatus.connected);
