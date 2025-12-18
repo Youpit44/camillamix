@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from aiohttp import web, WSMsgType
+import yaml
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
 FRONTEND_DIR = os.path.join(ROOT, 'frontend')
@@ -13,6 +14,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('server')
 
 DEFAULT_CHANNELS = 8
+AUTOSAVE_DEFAULT_ENABLED = os.getenv('AUTOSAVE_ENABLED', '1') not in ('0', 'false', 'False')
+AUTOSAVE_DEFAULT_INTERVAL = float(os.getenv('AUTOSAVE_INTERVAL_SEC', '30'))
 
 
 class MixerState:
@@ -24,7 +27,7 @@ class MixerState:
                 'level_db': 0.0,
                 'mute': False,
                 'solo': False,
-                'eq': {'low': 0.0, 'high': 0.0}
+                'eq': {'low': 0.0, 'mid': 0.0, 'high': 0.0}
             })
 
     def to_dict(self):
@@ -47,6 +50,11 @@ async def websocket_handler(request):
             level = max(-60.0, min(12.0, ch['level_db']))
             levels.append({'channel': ch['index'], 'level_db': level, 'peak_db': level + 0.5})
         await ws.send_json({'type': 'levels', 'payload': {'channels': levels}})
+        await ws.send_json({'type': 'autosave_settings', 'payload': {'enabled': app['autosave_enabled'], 'interval_sec': app['autosave_interval']}})
+        # send CamillaDSP connection status
+        adapter = app.get('adapter')
+        camilla_status = get_camilla_status(adapter)
+        await ws.send_json({'type': 'camilla_status', 'payload': camilla_status})
     except Exception:
         logger.exception('failed to send initial state to ws client')
 
@@ -102,6 +110,29 @@ async def websocket_handler(request):
                         await ws.send_json({'type': 'preset_loaded', 'payload': {'name': name}})
                     else:
                         await ws.send_json({'type': 'error', 'payload': 'preset not found'})
+                elif typ == 'set_channel_eq':
+                    ch = int(payload.get('channel', 0))
+                    band = str(payload.get('band', 'mid')).lower()
+                    val = float(payload.get('gain_db', 0.0))
+                    if band not in ('low', 'mid', 'high'):
+                        await ws.send_json({'type': 'error', 'payload': 'invalid eq band'})
+                        continue
+                    if 0 <= ch < len(app['mixer'].channels):
+                        app['mixer'].channels[ch]['eq'][band] = val
+                        # placeholder: adapter could forward to DSP if supported
+                        app['state_needs_broadcast'] = True
+                elif typ == 'set_autosave':
+                    enabled = payload.get('enabled', app['autosave_enabled'])
+                    interval = payload.get('interval_sec', app['autosave_interval'])
+                    try:
+                        interval = float(interval)
+                        if interval <= 0:
+                            interval = app['autosave_interval']
+                    except Exception:
+                        interval = app['autosave_interval']
+                    app['autosave_enabled'] = bool(enabled)
+                    app['autosave_interval'] = interval
+                    await ws.send_json({'type': 'autosave_settings', 'payload': {'enabled': app['autosave_enabled'], 'interval_sec': app['autosave_interval']}})
                 else:
                     await ws.send_json({'type': 'error', 'payload': 'unknown type'})
 
@@ -115,8 +146,107 @@ async def websocket_handler(request):
     return ws
 
 
+def map_yaml_to_state(yobj, channels=DEFAULT_CHANNELS):
+    def default_channels(n):
+        return [{
+            'index': i,
+            'level_db': 0.0,
+            'mute': False,
+            'solo': False,
+            'eq': {'low': 0.0, 'mid': 0.0, 'high': 0.0}
+        } for i in range(n)]
+
+    # If yaml already contains a state structure we recognize
+    if isinstance(yobj, dict) and 'state' in yobj:
+        st = yobj['state']
+        if isinstance(st, dict) and 'channels' in st:
+            chs = st['channels']
+            # sanitize and pad/trim
+            out = default_channels(channels)
+            for i in range(min(len(chs), channels)):
+                try:
+                    out[i]['level_db'] = float(chs[i].get('level_db', 0.0))
+                    out[i]['mute'] = bool(chs[i].get('mute', False))
+                    out[i]['solo'] = bool(chs[i].get('solo', False))
+                    eq = chs[i].get('eq', {}) or {}
+                    out[i]['eq']['low'] = float(eq.get('low', 0.0))
+                    out[i]['eq']['mid'] = float(eq.get('mid', 0.0))
+                    out[i]['eq']['high'] = float(eq.get('high', 0.0))
+                except Exception:
+                    pass
+            return ({'channels': out}, {'source': 'state'})
+
+    # Try CamillaDSP mixers mapping
+    if isinstance(yobj, dict) and 'mixers' in yobj and isinstance(yobj['mixers'], dict):
+        mixers = yobj['mixers']
+        # pick named '2x8' if present else first
+        mixer_name = '2x8' if '2x8' in mixers else next(iter(mixers))
+        mixer = mixers[mixer_name]
+        out = default_channels(channels)
+        try:
+            mapping = mixer.get('mapping', [])
+            for entry in mapping:
+                dest = int(entry.get('dest', -1))
+                if 0 <= dest < channels:
+                    mute = bool(entry.get('mute', False))
+                    srcs = entry.get('sources') or []
+                    gain = 0.0
+                    if srcs:
+                        s0 = srcs[0]
+                        gain = float(s0.get('gain', 0.0))
+                        mute = mute or bool(s0.get('mute', False))
+                        # if scale is linear, convert to dB if possible; assume dB if 'scale'=='dB'
+                        # otherwise keep as-is
+                    out[dest]['level_db'] = gain
+                    out[dest]['mute'] = mute
+            return ({'channels': out}, {'source': 'mixers', 'mixer': mixer_name})
+        except Exception:
+            pass
+
+    # Fallback: look for a flat gains list
+    if isinstance(yobj, dict) and 'gains' in yobj and isinstance(yobj['gains'], list):
+        out = default_channels(channels)
+        for i in range(min(channels, len(yobj['gains']))):
+            try:
+                out[i]['level_db'] = float(yobj['gains'][i])
+            except Exception:
+                pass
+        return ({'channels': out}, {'source': 'gains'})
+
+    # Default
+    return ({'channels': default_channels(channels)}, {'source': 'default'})
+
 async def broadcast_state(app):
     payload = {'type': 'state', 'payload': app['mixer'].to_dict()}
+    websockets = list(app['sockets'])
+    for ws in websockets:
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            pass
+
+def get_camilla_status(adapter):
+    """Return CamillaDSP connection status"""
+    if not adapter:
+        return {'connected': False, 'ws_connected': False, 'tcp_connected': False}
+
+    ws_connected = adapter._ws is not None and not adapter._ws.closed if adapter._ws else False
+    tcp_connected = getattr(adapter, '_pycdsp_connected', False)
+
+    return {
+        'connected': ws_connected or tcp_connected,
+        'ws_connected': ws_connected,
+        'tcp_connected': tcp_connected,
+        'ws_url': adapter.url or '',
+        'tcp_host': getattr(adapter, '_py_host', ''),
+        'tcp_port': getattr(adapter, '_py_port', 0)
+    }
+
+async def broadcast_camilla_status(app):
+    """Broadcast CamillaDSP status to all connected clients"""
+    adapter = app.get('adapter')
+    status = get_camilla_status(adapter)
+    payload = {'type': 'camilla_status', 'payload': status}
     websockets = list(app['sockets'])
     for ws in websockets:
         try:
@@ -149,6 +279,16 @@ async def levels_broadcaster(app):
                 except Exception:
                     logger.exception('failed broadcasting state')
                 app['state_needs_broadcast'] = False
+
+            # periodically broadcast CamillaDSP status (every 10 iterations = 2s)
+            if not hasattr(app, '_camilla_status_counter'):
+                app['_camilla_status_counter'] = 0
+            app['_camilla_status_counter'] = (app['_camilla_status_counter'] + 1) % 10
+            if app['_camilla_status_counter'] == 0:
+                try:
+                    await broadcast_camilla_status(app)
+                except Exception:
+                    logger.exception('failed broadcasting camilla status')
         except asyncio.CancelledError:
             break
         except Exception:
@@ -167,6 +307,8 @@ def create_app():
     app['mixer'] = MixerState(channels=DEFAULT_CHANNELS)
     # flag used to request a state broadcast from the periodic broadcaster
     app['state_needs_broadcast'] = False
+    app['autosave_enabled'] = AUTOSAVE_DEFAULT_ENABLED
+    app['autosave_interval'] = AUTOSAVE_DEFAULT_INTERVAL
     from .camilla_adapter import CamillaAdapter
     from .presets import PresetManager
     from .logger import setup_logging
@@ -213,6 +355,105 @@ def create_app():
     app.router.add_post('/api/presets', post_preset)
     app.router.add_get('/api/presets/current', get_current_state)
 
+    # YAML import API
+    async def import_yaml(request):
+        preset_name = request.query.get('name') or 'imported'
+        raw_yaml = None
+        # Support multipart (file upload)
+        if request.content_type and 'multipart/' in request.content_type:
+            reader = await request.multipart()
+            field = await reader.next()
+            while field is not None:
+                if field.name == 'file':
+                    raw_yaml = await field.text()
+                    break
+                field = await reader.next()
+        if raw_yaml is None:
+            # Try json body with {'yaml': '...', 'name': '...'} or raw text/yaml
+            try:
+                data = await request.json()
+                raw_yaml = data.get('yaml')
+                if data.get('name'):
+                    preset_name = str(data['name'])
+            except Exception:
+                try:
+                    raw_yaml = await request.text()
+                except Exception:
+                    pass
+        if not raw_yaml:
+            raise web.HTTPBadRequest(text='no yaml provided')
+        try:
+            yobj = yaml.safe_load(raw_yaml)
+        except Exception as e:
+            raise web.HTTPBadRequest(text=f'yaml parse error: {e}')
+
+        mapped, info = map_yaml_to_state(yobj, channels=len(app['mixer'].channels))
+        app['mixer'].channels = mapped['channels']
+        await broadcast_state(app)
+        # save as preset
+        await app['presets'].save_preset(preset_name, app['mixer'].to_dict())
+        return web.json_response({'imported_as': preset_name, 'mapping': info, 'state': app['mixer'].to_dict()})
+
+    app.router.add_post('/api/import_yaml', import_yaml)
+
+    # Autosave settings API
+    async def get_autosave(request):
+        return web.json_response({'enabled': app['autosave_enabled'], 'interval_sec': app['autosave_interval']})
+
+    async def post_autosave(request):
+        try:
+            data = await request.json()
+            enabled = data.get('enabled', app['autosave_enabled'])
+            interval = data.get('interval_sec', app['autosave_interval'])
+            try:
+                interval = float(interval)
+                if interval <= 0:
+                    interval = app['autosave_interval']
+            except Exception:
+                interval = app['autosave_interval']
+            app['autosave_enabled'] = bool(enabled)
+            app['autosave_interval'] = interval
+            return web.json_response({'enabled': app['autosave_enabled'], 'interval_sec': app['autosave_interval']})
+        except Exception as e:
+            raise web.HTTPBadRequest(text=str(e))
+
+    app.router.add_get('/api/autosave', get_autosave)
+    app.router.add_post('/api/autosave', post_autosave)
+
+    # CamillaDSP config API
+    async def get_camilla_config(request):
+        adapter = app.get('adapter')
+        status = get_camilla_status(adapter)
+        config = {
+            'ws_url': adapter.url if adapter else '',
+            'host': getattr(adapter, '_py_host', '127.0.0.1') if adapter else '127.0.0.1',
+            'port': getattr(adapter, '_py_port', 1234) if adapter else 1234,
+            'status': status
+        }
+        return web.json_response(config)
+
+    async def post_camilla_config(request):
+        try:
+            data = await request.json()
+            ws_url = data.get('ws_url', '').strip()
+            host = data.get('host', '127.0.0.1').strip()
+            port = int(data.get('port', 1234))
+
+            # Update adapter config (requires restart for full effect)
+            adapter = app.get('adapter')
+            if adapter:
+                adapter.url = ws_url if ws_url else None
+                adapter._py_host = host
+                adapter._py_port = port
+                logger.info(f'CamillaDSP config updated: ws_url={ws_url}, host={host}, port={port}')
+
+            return web.json_response({'ws_url': ws_url, 'host': host, 'port': port, 'restart_required': True})
+        except Exception as e:
+            raise web.HTTPBadRequest(text=str(e))
+
+    app.router.add_get('/api/camilla_config', get_camilla_config)
+    app.router.add_post('/api/camilla_config', post_camilla_config)
+
     app.router.add_static('/', FRONTEND_DIR, show_index=True)
 
     async def on_startup(app):
@@ -229,7 +470,9 @@ def create_app():
         async def autosave_loop():
             while True:
                 try:
-                    await asyncio.sleep(10)
+                    await asyncio.sleep(app['autosave_interval'])
+                    if not app['autosave_enabled']:
+                        continue
                     name = 'autosave'
                     await app['presets'].save_preset(name, app['mixer'].to_dict())
                     logger.info('autosaved preset')
