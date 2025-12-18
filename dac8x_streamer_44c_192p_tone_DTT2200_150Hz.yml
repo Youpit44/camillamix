@@ -1,0 +1,84 @@
+
+# dac8x_streamer_44c_192p_tone_DTT2200_150Hz.yml
+# Variant tuned for Cambridge SoundWorks DTT2200 5.1 set
+# Bass shelf pivot at 150 Hz (vs 120 Hz), Mid 1 kHz, Treble 6.5 kHz.
+
+title: "DAC8x Streamer 44c → 192p + Tone (DTT2200 150Hz Bass)"
+description: "Tone shelves centered for DTT2200: Bass 150 Hz, Mid 1 kHz, Treble 6.5 kHz."
+
+devices:
+  samplerate: 192000
+  chunksize: 4096
+  capture:
+    type: Alsa
+    channels: 2
+    device: "hw:Loopback,1"
+    format: S32LE
+  playback:
+    type: Alsa
+    channels: 8
+    device: "hw:0,0"
+    format: S32LE
+  enable_rate_adjust: false
+  capture_samplerate: 44100
+
+resampler:
+  type: SincBest
+
+mixers:
+  to8:
+    channels: { in: 2, out: 8 }
+    mapping:
+      - { dest: 0, sources: [ { channel: 0, gain: 0.0, inverted: false } ] }
+      - { dest: 1, sources: [ { channel: 1, gain: 0.0, inverted: false } ] }
+      - { dest: 2, sources: [ { channel: 0, gain: 0.0, inverted: false } ] }
+      - { dest: 3, sources: [ { channel: 1, gain: 0.0, inverted: false } ] }
+      - { dest: 4, sources: [ { channel: 0, gain: 0.0, inverted: false } ] }
+      - { dest: 5, sources: [ { channel: 1, gain: 0.0, inverted: false } ] }
+      - { dest: 6, sources: [ { channel: 0, gain: 0.0, inverted: false } ] }
+      - { dest: 7, sources: [ { channel: 1, gain: 0.0, inverted: false } ] }
+
+filters:
+  # Bass shelves at 150 Hz
+  Bass_0:   { type: Biquad, parameters: { type: Lowshelf,  freq: 150,  q: 0.9, gain: 0.0 } }
+  Mid_0:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_0: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+  Bass_1:   { type: Biquad, parameters: { type: Lowshelf,  freq: 150,  q: 0.9, gain: 0.0 } }
+  Mid_1:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_1: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+  Bass_2:   { type: Biquad, parameters: { type: Lowshelf,  freq: 150,  q: 0.9, gain: 0.0 } }
+  Mid_2:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_2: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+  Bass_3:   { type: Biquad, parameters: { type: Lowshelf,  freq: 150,  q: 0.9, gain: 0.0 } }
+  Mid_3:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_3: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+  Bass_4:   { type: Biquad, parameters: { type: Lowshelf,  freq: 150,  q: 0.9, gain: 0.0 } }
+  Mid_4:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_4: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+  Bass_5:   { type: Biquad, parameters: { type: Lowshelf,  freq: 150,  q: 0.9, gain: 0.0 } }
+  Mid_5:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_5: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+  Bass_6:   { type: Biquad, parameters: { type: Lowshelf,  freq: 150,  q: 0.9, gain: 0.0 } }
+  Mid_6:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_6: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+  Bass_7:   { type: Biquad, parameters: { type: Lowshelf,  freq: 150,  q: 0.9, gain: 0.0 } }
+  Mid_7:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_7: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+pipeline:
+  - { type: Mixer, name: to8 }
+  - { type: Filter, channel: 0, names: [Bass_0, Mid_0, Treble_0] }
+  - { type: Filter, channel: 1, names: [Bass_1, Mid_1, Treble_1] }
+  - { type: Filter, channel: 2, names: [Bass_2, Mid_2, Treble_2] }
+  - { type: Filter, channel: 3, names: [Bass_3, Mid_3, Treble_3] }
+  - { type: Filter, channel: 4, names: [Bass_4, Mid_4, Treble_4] }
+  - { type: Filter, channel: 5, names: [Bass_5, Mid_5, Treble_5] }
+  - { type: Filter, channel: 6, names: [Bass_6, Mid_6, Treble_6] }
+  - { type: Filter, channel: 7, names: [Bass_7, Mid_7, Treble_7] }

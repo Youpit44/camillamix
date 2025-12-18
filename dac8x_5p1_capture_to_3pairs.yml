@@ -1,0 +1,70 @@
+
+# dac8x_5p1_capture_to_3pairs.yml
+# Input: 6-ch (5.1) capture at 44.1 kHz
+# Output: 6-ch playback on DAC8x using 3 stereo pairs
+#  - Ch0/1: Front L/R
+#  - Ch2/3: Rear L/R
+#  - Ch4:   Center
+#  - Ch5:   Sub (LFE)
+
+title: "DAC8x 5.1 capture → 3 pairs out (Front/Rear/C+Sub)"
+description: "Pass-through routing for DTT2200 analog inputs using only 3 output pairs."
+
+devices:
+  samplerate: 44100
+  chunksize: 1024
+  capture:
+    type: Alsa
+    channels: 6
+    device: "hw:Loopback,1"   # adjust to your 5.1 capture device
+    format: S32LE
+  playback:
+    type: Alsa
+    channels: 6
+    device: "hw:0,0"          # DAC8x
+    format: S32LE
+
+mixers:
+  route:
+    channels: { in: 6, out: 6 }
+    mapping:
+      - { dest: 0, sources: [ { channel: 0, gain: 0.0 } ] }  # Front L
+      - { dest: 1, sources: [ { channel: 1, gain: 0.0 } ] }  # Front R
+      - { dest: 2, sources: [ { channel: 2, gain: 0.0 } ] }  # Rear L
+      - { dest: 3, sources: [ { channel: 3, gain: 0.0 } ] }  # Rear R
+      - { dest: 4, sources: [ { channel: 4, gain: 0.0 } ] }  # Center
+      - { dest: 5, sources: [ { channel: 5, gain: 0.0 } ] }  # Sub/LFE
+
+# Optional tone controls per output (set gain to taste)
+filters:
+  Bass_0:   { type: Biquad, parameters: { type: Lowshelf,  freq: 120, q: 0.9, gain: 0.0 } }
+  Mid_0:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_0: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+  Bass_1:   { type: Biquad, parameters: { type: Lowshelf,  freq: 120, q: 0.9, gain: 0.0 } }
+  Mid_1:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_1: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+  Bass_2:   { type: Biquad, parameters: { type: Lowshelf,  freq: 120, q: 0.9, gain: 0.0 } }
+  Mid_2:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_2: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+  Bass_3:   { type: Biquad, parameters: { type: Lowshelf,  freq: 120, q: 0.9, gain: 0.0 } }
+  Mid_3:    { type: Biquad, parameters: { type: Peaking,   freq: 1000, q: 1.0, gain: 0.0 } }
+  Treble_3: { type: Biquad, parameters: { type: Highshelf, freq: 6500, q: 0.7, gain: 0.0 } }
+
+  CenterEQ: { type: Biquad, parameters: { type: Peaking,   freq: 1500, q: 1.0, gain: 0.0 } }
+  SubGain:  { type: Gain,   parameters: { gain: 0.0 } }
+
+processors:
+  Volume: { type: Volume, parameters: { volume: 0.0, ramp_time: 400 } }
+
+pipeline:
+  - { type: Mixer, name: route }
+  - { type: Filter, channel: 0, names: [Bass_0, Mid_0, Treble_0] }
+  - { type: Filter, channel: 1, names: [Bass_1, Mid_1, Treble_1] }
+  - { type: Filter, channel: 2, names: [Bass_2, Mid_2, Treble_2] }
+  - { type: Filter, channel: 3, names: [Bass_3, Mid_3, Treble_3] }
+  - { type: Filter, channel: 4, names: [CenterEQ] }
+  - { type: Filter, channel: 5, names: [SubGain] }
+  - { type: Processor, names: [Volume] }
