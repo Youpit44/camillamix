@@ -1,0 +1,63 @@
+
+# gui-config.yml
+# CamillaGUI custom shortcuts: tone controls (gain) per output channel
+# Place this file under /opt/camillagui/config/gui-config.yml (or
+# the directory used by your CamillaGUI install). Restart camillagui service if needed.
+---
+# Optional general UI settings (uncomment to suit your install)
+# hide_capture_samplerate: false
+# hide_silence: false
+# hide_capture_device: false
+# hide_playback_device: false
+# apply_config_automatically: false
+# status_update_interval: 100
+
+custom_shortcuts:
+  - section: "Tonalité - Canal 0"
+    description: "Réglages Bass/Mid/Treble sur la sortie 0"
+    shortcuts:
+      - { name: "Graves Ch0 (dB)",  path_in_config: ["filters","Bass_0","parameters","gain"],   range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Médiums Ch0 (dB)", path_in_config: ["filters","Mid_0","parameters","gain"],    range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Aigus Ch0 (dB)",   path_in_config: ["filters","Treble_0","parameters","gain"], range_from: -12, range_to: 12, step: 0.5 }
+
+  - section: "Tonalité - Canal 1"
+    shortcuts:
+      - { name: "Graves Ch1 (dB)",  path_in_config: ["filters","Bass_1","parameters","gain"],   range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Médiums Ch1 (dB)", path_in_config: ["filters","Mid_1","parameters","gain"],    range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Aigus Ch1 (dB)",   path_in_config: ["filters","Treble_1","parameters","gain"], range_from: -12, range_to: 12, step: 0.5 }
+
+  - section: "Tonalité - Canal 2"
+    shortcuts:
+      - { name: "Graves Ch2 (dB)",  path_in_config: ["filters","Bass_2","parameters","gain"],   range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Médiums Ch2 (dB)", path_in_config: ["filters","Mid_2","parameters","gain"],    range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Aigus Ch2 (dB)",   path_in_config: ["filters","Treble_2","parameters","gain"], range_from: -12, range_to: 12, step: 0.5 }
+
+  - section: "Tonalité - Canal 3"
+    shortcuts:
+      - { name: "Graves Ch3 (dB)",  path_in_config: ["filters","Bass_3","parameters","gain"],   range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Médiums Ch3 (dB)", path_in_config: ["filters","Mid_3","parameters","gain"],    range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Aigus Ch3 (dB)",   path_in_config: ["filters","Treble_3","parameters","gain"], range_from: -12, range_to: 12, step: 0.5 }
+
+  - section: "Tonalité - Canal 4"
+    shortcuts:
+      - { name: "Graves Ch4 (dB)",  path_in_config: ["filters","Bass_4","parameters","gain"],   range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Médiums Ch4 (dB)", path_in_config: ["filters","Mid_4","parameters","gain"],    range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Aigus Ch4 (dB)",   path_in_config: ["filters","Treble_4","parameters","gain"], range_from: -12, range_to: 12, step: 0.5 }
+
+  - section: "Tonalité - Canal 5"
+    shortcuts:
+      - { name: "Graves Ch5 (dB)",  path_in_config: ["filters","Bass_5","parameters","gain"],   range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Médiums Ch5 (dB)", path_in_config: ["filters","Mid_5","parameters","gain"],    range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Aigus Ch5 (dB)",   path_in_config: ["filters","Treble_5","parameters","gain"], range_from: -12, range_to: 12, step: 0.5 }
+
+  - section: "Tonalité - Canal 6"
+    shortcuts:
+      - { name: "Graves Ch6 (dB)",  path_in_config: ["filters","Bass_6","parameters","gain"],   range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Médiums Ch6 (dB)", path_in_config: ["filters","Mid_6","parameters","gain"],    range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Aigus Ch6 (dB)",   path_in_config: ["filters","Treble_6","parameters","gain"], range_from: -12, range_to: 12, step: 0.5 }
+
+  - section: "Tonalité - Canal 7"
+    shortcuts:
+      - { name: "Graves Ch7 (dB)",  path_in_config: ["filters","Bass_7","parameters","gain"],   range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Médiums Ch7 (dB)", path_in_config: ["filters","Mid_7","parameters","gain"],    range_from: -12, range_to: 12, step: 0.5 }
+      - { name: "Aigus Ch7 (dB)",   path_in_config: ["filters","Treble_7","parameters","gain"], range_from: -12, range_to: 12, step: 0.5 }
