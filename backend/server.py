@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 import os
+import math
+import time
 from aiohttp import web, WSMsgType
 import yaml
 
@@ -16,6 +18,78 @@ logger = logging.getLogger('server')
 DEFAULT_CHANNELS = 8
 AUTOSAVE_DEFAULT_ENABLED = os.getenv('AUTOSAVE_ENABLED', '1') not in ('0', 'false', 'False')
 AUTOSAVE_DEFAULT_INTERVAL = float(os.getenv('AUTOSAVE_INTERVAL_SEC', '30'))
+MIN_LEVEL_DB = -60.0
+MAX_LEVEL_DB = 12.0
+MAX_YAML_SIZE = 5 * 1024 * 1024  # 5 MB
+LEVELS_BROADCAST_INTERVAL = 0.2
+CAMILLA_STATUS_BROADCAST_INTERVAL = 10  # iterations
+
+
+def validate_channel(ch: int, mixer_channels: list) -> int:
+    """Validate channel index is within bounds.
+
+    Args:
+        ch: Channel index
+        mixer_channels: List of channel objects
+
+    Returns:
+        Validated channel index
+
+    Raises:
+        ValueError: If channel is invalid
+    """
+    try:
+        ch_int = int(ch)
+    except (ValueError, TypeError):
+        raise ValueError(f"Channel must be an integer, got {type(ch).__name__}")
+
+    if not (0 <= ch_int < len(mixer_channels)):
+        raise ValueError(f"Channel {ch_int} out of range [0, {len(mixer_channels)-1}]")
+
+    return ch_int
+
+
+def parse_db_value(val, min_db: float = MIN_LEVEL_DB, max_db: float = MAX_LEVEL_DB) -> float:
+    """Parse and validate a dB value.
+
+    Args:
+        val: Value to parse (can be int, float, or string)
+        min_db: Minimum allowed dB value
+        max_db: Maximum allowed dB value
+
+    Returns:
+        Validated dB value clamped to [min_db, max_db]
+
+    Raises:
+        ValueError: If value is invalid
+    """
+    try:
+        f = float(val)
+    except (ValueError, TypeError):
+        raise ValueError(f"Level must be numeric, got {type(val).__name__}: {val}")
+
+    if math.isnan(f) or math.isinf(f):
+        raise ValueError(f"Level must be finite, got {f}")
+
+    # Clamp to valid range
+    return max(min_db, min(max_db, f))
+
+
+def validate_preset_name(name: str) -> str:
+    """Validate preset name (delegates to PresetManager for consistency).
+
+    Args:
+        name: Preset name
+
+    Returns:
+        Validated name
+
+    Raises:
+        ValueError: If invalid
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("Preset name must be a non-empty string")
+    return name
 
 
 class MixerState:
@@ -71,28 +145,37 @@ async def websocket_handler(request):
                 payload = data.get('payload', {})
 
                 if typ == 'set_channel_level':
-                    ch = int(payload.get('channel', 0))
-                    lvl = float(payload.get('level_db', 0.0))
-                    if 0 <= ch < len(app['mixer'].channels):
+                    try:
+                        ch = validate_channel(payload.get('channel', 0), app['mixer'].channels)
+                        lvl = parse_db_value(payload.get('level_db', 0.0))
                         app['mixer'].channels[ch]['level_db'] = lvl
                         # forward to camilla adapter (stub)
                         app['adapter'].set_level(ch, lvl)
                         # mark that state should be broadcast by the periodic broadcaster
                         app['state_needs_broadcast'] = True
+                    except ValueError as e:
+                        await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_level: {str(e)}'})
+                        continue
                 elif typ == 'set_channel_mute':
-                    ch = int(payload.get('channel', 0))
-                    m = bool(payload.get('mute', False))
-                    if 0 <= ch < len(app['mixer'].channels):
+                    try:
+                        ch = validate_channel(payload.get('channel', 0), app['mixer'].channels)
+                        m = bool(payload.get('mute', False))
                         app['mixer'].channels[ch]['mute'] = m
                         app['adapter'].set_mute(ch, m)
                         app['state_needs_broadcast'] = True
+                    except ValueError as e:
+                        await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_mute: {str(e)}'})
+                        continue
                 elif typ == 'set_channel_solo':
-                    ch = int(payload.get('channel', 0))
-                    s = bool(payload.get('solo', False))
-                    if 0 <= ch < len(app['mixer'].channels):
+                    try:
+                        ch = validate_channel(payload.get('channel', 0), app['mixer'].channels)
+                        s = bool(payload.get('solo', False))
                         app['mixer'].channels[ch]['solo'] = s
                         app['adapter'].set_solo(ch, s)
                         app['state_needs_broadcast'] = True
+                    except ValueError as e:
+                        await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_solo: {str(e)}'})
+                        continue
                 elif typ == 'subscribe_levels':
                     # client wants to receive levels periodically; handled by broadcaster
                     await ws.send_json({'type': 'subscribed_levels', 'payload': {'interval_ms': payload.get('interval_ms', 100)}})
@@ -111,16 +194,18 @@ async def websocket_handler(request):
                     else:
                         await ws.send_json({'type': 'error', 'payload': 'preset not found'})
                 elif typ == 'set_channel_eq':
-                    ch = int(payload.get('channel', 0))
-                    band = str(payload.get('band', 'mid')).lower()
-                    val = float(payload.get('gain_db', 0.0))
-                    if band not in ('low', 'mid', 'high'):
-                        await ws.send_json({'type': 'error', 'payload': 'invalid eq band'})
-                        continue
-                    if 0 <= ch < len(app['mixer'].channels):
+                    try:
+                        ch = validate_channel(payload.get('channel', 0), app['mixer'].channels)
+                        band = str(payload.get('band', 'mid')).lower()
+                        if band not in ('low', 'mid', 'high'):
+                            raise ValueError(f"Invalid EQ band: {band}")
+                        val = parse_db_value(payload.get('gain_db', 0.0))
                         app['mixer'].channels[ch]['eq'][band] = val
                         # placeholder: adapter could forward to DSP if supported
                         app['state_needs_broadcast'] = True
+                    except ValueError as e:
+                        await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_eq: {str(e)}'})
+                        continue
                 elif typ == 'set_autosave':
                     enabled = payload.get('enabled', app['autosave_enabled'])
                     interval = payload.get('interval_sec', app['autosave_interval'])
@@ -283,7 +368,7 @@ async def levels_broadcaster(app):
             # periodically broadcast CamillaDSP status (every 10 iterations = 2s)
             if not hasattr(app, '_camilla_status_counter'):
                 app['_camilla_status_counter'] = 0
-            app['_camilla_status_counter'] = (app['_camilla_status_counter'] + 1) % 10
+            app['_camilla_status_counter'] = (app['_camilla_status_counter'] + 1) % CAMILLA_STATUS_BROADCAST_INTERVAL
             if app['_camilla_status_counter'] == 0:
                 try:
                     await broadcast_camilla_status(app)
@@ -294,7 +379,7 @@ async def levels_broadcaster(app):
         except Exception:
             logger.exception('error in levels broadcaster')
 
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(LEVELS_BROADCAST_INTERVAL)
 
 
 async def index(request):
@@ -382,10 +467,22 @@ def create_app():
                     pass
         if not raw_yaml:
             raise web.HTTPBadRequest(text='no yaml provided')
+
+        # Prevent YAML bomb DoS
+        if len(raw_yaml) > MAX_YAML_SIZE:
+            raise web.HTTPBadRequest(text=f'YAML too large (max {MAX_YAML_SIZE} bytes)')
+
         try:
+            # Parse YAML with timeout protection
             yobj = yaml.safe_load(raw_yaml)
+            if yobj is None:
+                yobj = {}
+        except yaml.YAMLError as e:
+            logger.error(f"YAML parse error: {e}")
+            raise web.HTTPBadRequest(text=f'YAML parse error: {str(e)[:100]}')
         except Exception as e:
-            raise web.HTTPBadRequest(text=f'yaml parse error: {e}')
+            logger.error(f"Unexpected error parsing YAML: {e}")
+            raise web.HTTPBadRequest(text=f'Failed to parse YAML: {str(e)[:100]}')
 
         mapped, info = map_yaml_to_state(yobj, channels=len(app['mixer'].channels))
         app['mixer'].channels = mapped['channels']
@@ -437,7 +534,18 @@ def create_app():
             data = await request.json()
             ws_url = data.get('ws_url', '').strip()
             host = data.get('host', '127.0.0.1').strip()
-            port = int(data.get('port', 1234))
+
+            # Validate host (basic check)
+            if not host:
+                raise ValueError("Host cannot be empty")
+
+            # Validate port
+            try:
+                port = int(data.get('port', 1234))
+                if not (1 <= port <= 65535):
+                    raise ValueError(f"Port must be 1-65535, got {port}")
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Invalid port: {str(e)}")
 
             # Update adapter config (requires restart for full effect)
             adapter = app.get('adapter')
@@ -448,7 +556,10 @@ def create_app():
                 logger.info(f'CamillaDSP config updated: ws_url={ws_url}, host={host}, port={port}')
 
             return web.json_response({'ws_url': ws_url, 'host': host, 'port': port, 'restart_required': True})
+        except ValueError as e:
+            raise web.HTTPBadRequest(text=f"Config error: {str(e)}")
         except Exception as e:
+            logger.exception("Error updating CamillaDSP config")
             raise web.HTTPBadRequest(text=str(e))
 
     app.router.add_get('/api/camilla_config', get_camilla_config)
