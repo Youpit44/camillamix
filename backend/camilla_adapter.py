@@ -33,6 +33,8 @@ class CamillaAdapter:
         self._py_connected = False
         self._py_host = os.environ.get('CAMILLA_HOST', '127.0.0.1')
         self._py_port = int(os.environ.get('CAMILLA_PORT', '1234'))
+        # Use external volume integration (Loudness without Volume filter)
+        self._py_external_volume = os.environ.get('CAMILLA_EXTERNAL_VOLUME', '0') not in ('0', 'false', 'False', '')
 
     async def start(self):
         # Try to initialize pycamilladsp CamillaClient if available
@@ -109,19 +111,39 @@ class CamillaAdapter:
         # if pycamilladsp CamillaClient is connected, use official API
         if self._py_client and self._py_connected:
             try:
-                # CamillaDSP faders: 0 = main, 1..N = Aux. We map channel index directly.
-                self._py_client.volume.set_volume(int(channel), float(level_db))
+                ch = int(channel)
+                lv = float(level_db)
+                # For master, use explicit main API (more reliable than fader=0)
+                if ch == 0:
+                    if self._py_external_volume and hasattr(self._py_client.volume, 'set_volume_external'):
+                        # External volume mode (e.g., loudness with external control)
+                        self._py_client.volume.set_volume_external(0, lv)
+                    else:
+                        self._py_client.volume.set_main_volume(lv)
+                else:
+                    # Only control Aux faders if they exist; many configs have up to 4
+                    # We avoid mapping UI channels to Aux faders to prevent confusion.
+                    # If you really want to map to Aux faders 1..4, uncomment next line.
+                    # self._py_client.volume.set_volume(ch, lv)
+                    pass
             except Exception:
-                logger.exception('pycamilladsp set_volume failed')
+                logger.exception('pycamilladsp set_main_volume/set_volume failed')
         msg = {"type": "set_channel_level", "payload": {"channel": channel, "level_db": level_db}}
         self._enqueue(msg)
 
     def set_mute(self, channel: int, mute: bool):
         if self._py_client and self._py_connected:
             try:
-                self._py_client.volume.set_mute(int(channel), bool(mute))
+                ch = int(channel)
+                m = bool(mute)
+                if ch == 0:
+                    self._py_client.volume.set_main_mute(m)
+                else:
+                    # See note above: avoid mapping UI channels to Aux faders by default
+                    # self._py_client.volume.set_mute(ch, m)
+                    pass
             except Exception:
-                logger.exception('pycamilladsp set_mute failed')
+                logger.exception('pycamilladsp set_main_mute/set_mute failed')
         msg = {"type": "set_channel_mute", "payload": {"channel": channel, "mute": bool(mute)}}
         self._enqueue(msg)
 
