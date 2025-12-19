@@ -25,23 +25,27 @@ LEVELS_BROADCAST_INTERVAL = 0.2
 CAMILLA_STATUS_BROADCAST_INTERVAL = 10  # iterations
 
 
-def validate_channel(ch: int, mixer_channels: list) -> int:
-    """Validate channel index is within bounds.
+def validate_channel(ch, mixer_channels: list):
+    """Validate channel index is within bounds or is 'master'.
 
     Args:
-        ch: Channel index
+        ch: Channel index (int or string 'master')
         mixer_channels: List of channel objects
 
     Returns:
-        Validated channel index
+        Validated channel index (int) or 'master'
 
     Raises:
         ValueError: If channel is invalid
     """
+    # Handle master case
+    if isinstance(ch, str) and ch.lower() == 'master':
+        return 'master'
+
     try:
         ch_int = int(ch)
     except (ValueError, TypeError):
-        raise ValueError(f"Channel must be an integer, got {type(ch).__name__}")
+        raise ValueError(f"Channel must be an integer or 'master', got {type(ch).__name__}")
 
     if not (0 <= ch_int < len(mixer_channels)):
         raise ValueError(f"Channel {ch_int} out of range [0, {len(mixer_channels)-1}]")
@@ -94,6 +98,13 @@ def validate_preset_name(name: str) -> str:
 
 class MixerState:
     def __init__(self, channels=DEFAULT_CHANNELS):
+        self.master = {
+            'index': 'master',
+            'level_db': 0.0,
+            'mute': False,
+            'solo': False,
+            'eq': {'low': 0.0, 'mid': 0.0, 'high': 0.0}
+        }
         self.channels = []
         for i in range(channels):
             self.channels.append({
@@ -105,7 +116,7 @@ class MixerState:
             })
 
     def to_dict(self):
-        return {'channels': self.channels}
+        return {'master': self.master, 'channels': self.channels}
 
 
 async def websocket_handler(request):
@@ -120,6 +131,10 @@ async def websocket_handler(request):
         await ws.send_json({'type': 'state', 'payload': app['mixer'].to_dict()})
         # send initial levels snapshot
         levels = []
+        # Add master level first
+        master_level = max(-60.0, min(12.0, app['mixer'].master['level_db']))
+        levels.append({'channel': 'master', 'level_db': master_level, 'peak_db': master_level + 0.5})
+        # Add channel levels
         for ch in app['mixer'].channels:
             level = max(-60.0, min(12.0, ch['level_db']))
             levels.append({'channel': ch['index'], 'level_db': level, 'peak_db': level + 0.5})
@@ -148,9 +163,14 @@ async def websocket_handler(request):
                     try:
                         ch = validate_channel(payload.get('channel', 0), app['mixer'].channels)
                         lvl = parse_db_value(payload.get('level_db', 0.0))
-                        app['mixer'].channels[ch]['level_db'] = lvl
-                        # forward to camilla adapter (stub)
-                        app['adapter'].set_level(ch, lvl)
+                        if ch == 'master':
+                            app['mixer'].master['level_db'] = lvl
+                            # Map master to fader 0 in CamillaDSP
+                            app['adapter'].set_level(0, lvl)
+                        else:
+                            app['mixer'].channels[ch]['level_db'] = lvl
+                            # Map channel i to fader (i+1) in CamillaDSP
+                            app['adapter'].set_level(ch + 1, lvl)
                         # mark that state should be broadcast by the periodic broadcaster
                         app['state_needs_broadcast'] = True
                     except ValueError as e:
@@ -160,8 +180,14 @@ async def websocket_handler(request):
                     try:
                         ch = validate_channel(payload.get('channel', 0), app['mixer'].channels)
                         m = bool(payload.get('mute', False))
-                        app['mixer'].channels[ch]['mute'] = m
-                        app['adapter'].set_mute(ch, m)
+                        if ch == 'master':
+                            app['mixer'].master['mute'] = m
+                            # Map master to fader 0 in CamillaDSP
+                            app['adapter'].set_mute(0, m)
+                        else:
+                            app['mixer'].channels[ch]['mute'] = m
+                            # Map channel i to fader (i+1) in CamillaDSP
+                            app['adapter'].set_mute(ch + 1, m)
                         app['state_needs_broadcast'] = True
                     except ValueError as e:
                         await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_mute: {str(e)}'})
@@ -170,8 +196,14 @@ async def websocket_handler(request):
                     try:
                         ch = validate_channel(payload.get('channel', 0), app['mixer'].channels)
                         s = bool(payload.get('solo', False))
-                        app['mixer'].channels[ch]['solo'] = s
-                        app['adapter'].set_solo(ch, s)
+                        if ch == 'master':
+                            app['mixer'].master['solo'] = s
+                            # Map master to fader 0 in CamillaDSP
+                            app['adapter'].set_solo(0, s)
+                        else:
+                            app['mixer'].channels[ch]['solo'] = s
+                            # Map channel i to fader (i+1) in CamillaDSP
+                            app['adapter'].set_solo(ch + 1, s)
                         app['state_needs_broadcast'] = True
                     except ValueError as e:
                         await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_solo: {str(e)}'})
@@ -187,7 +219,9 @@ async def websocket_handler(request):
                     name = payload.get('name')
                     state = await app['presets'].load_preset(name)
                     if state:
-                        # replace mixer state
+                        # replace mixer state (load master and channels)
+                        if 'master' in state:
+                            app['mixer'].master = state['master']
                         app['mixer'].channels = state.get('channels', app['mixer'].channels)
                         await broadcast_state(app)
                         await ws.send_json({'type': 'preset_loaded', 'payload': {'name': name}})
@@ -196,6 +230,8 @@ async def websocket_handler(request):
                 elif typ == 'set_channel_eq':
                     try:
                         ch = validate_channel(payload.get('channel', 0), app['mixer'].channels)
+                        if ch == 'master':
+                            raise ValueError("EQ is not available for master")
                         band = str(payload.get('band', 'mid')).lower()
                         if band not in ('low', 'mid', 'high'):
                             raise ValueError(f"Invalid EQ band: {band}")
@@ -345,6 +381,10 @@ async def levels_broadcaster(app):
     while True:
         try:
             levels = []
+            # Add master level first
+            master_level = max(-60.0, min(12.0, app['mixer'].master['level_db']))
+            levels.append({'channel': 'master', 'level_db': master_level, 'peak_db': master_level + 0.5})
+            # Add channel levels
             for ch in app['mixer'].channels:
                 # simple mapping from level_db to a mock peak
                 level = max(-60.0, min(12.0, ch['level_db']))
@@ -627,7 +667,7 @@ def create_app():
 
 def main():
     app = create_app()
-    web.run_app(app, host='0.0.0.0', port=8080)
+    web.run_app(app, host='0.0.0.0', port=8001)
 
 
 if __name__ == '__main__':
