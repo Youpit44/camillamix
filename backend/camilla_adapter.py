@@ -34,7 +34,8 @@ class CamillaAdapter:
         self._py_host = os.environ.get('CAMILLA_HOST', '127.0.0.1')
         self._py_port = int(os.environ.get('CAMILLA_PORT', '1234'))
         # Use external volume integration (Loudness without Volume filter)
-        self._py_external_volume = os.environ.get('CAMILLA_EXTERNAL_VOLUME', '0') not in ('0', 'false', 'False', '')
+        # Default ON unless explicitly disabled
+        self._py_external_volume = os.environ.get('CAMILLA_EXTERNAL_VOLUME', '1') not in ('0', 'false', 'False', '')
 
     async def start(self):
         # Try to initialize pycamilladsp CamillaClient if available

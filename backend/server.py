@@ -352,7 +352,21 @@ def get_camilla_status(adapter):
         return {'connected': False, 'ws_connected': False, 'tcp_connected': False}
 
     ws_connected = adapter._ws is not None and not adapter._ws.closed if adapter._ws else False
-    tcp_connected = getattr(adapter, '_pycdsp_connected', False)
+    tcp_connected = getattr(adapter, '_py_connected', False)
+
+    # Try reading main volume if connected via pycamilladsp
+    main_volume_db = None
+    external_volume = getattr(adapter, '_py_external_volume', False)
+    try:
+        if tcp_connected and getattr(adapter, '_py_client', None):
+            vol = adapter._py_client.volume
+            if external_volume and hasattr(vol, 'volume'):
+                # external mode: read fader 0 volume if available
+                main_volume_db = float(vol.volume(0))
+            elif hasattr(vol, 'main_volume'):
+                main_volume_db = float(vol.main_volume())
+    except Exception:
+        main_volume_db = None
 
     return {
         'connected': ws_connected or tcp_connected,
@@ -360,7 +374,9 @@ def get_camilla_status(adapter):
         'tcp_connected': tcp_connected,
         'ws_url': adapter.url or '',
         'tcp_host': getattr(adapter, '_py_host', ''),
-        'tcp_port': getattr(adapter, '_py_port', 0)
+        'tcp_port': getattr(adapter, '_py_port', 0),
+        'main_volume_db': main_volume_db,
+        'external_volume': bool(external_volume),
     }
 
 async def broadcast_camilla_status(app):
