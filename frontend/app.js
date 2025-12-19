@@ -58,6 +58,7 @@ function updateStatusBar(wsConnected, camillaConnected) {
   const wsText = document.getElementById('wsStatusText');
   const camillaLed = document.getElementById('camillaStatusLed');
   const camillaText = document.getElementById('camillaStatusText');
+  const camillaVol = document.getElementById('camillaStatusVol');
 
   if (wsLed && wsText) {
     wsLed.className = wsConnected ? 'status-led connected' : 'status-led disconnected';
@@ -68,7 +69,17 @@ function updateStatusBar(wsConnected, camillaConnected) {
   if (camillaLed && camillaText) {
     camillaLed.className = camillaConnected ? 'status-led connected' : 'status-led disconnected';
     camillaText.className = camillaConnected ? 'status-text connected' : 'status-text disconnected';
-    camillaText.textContent = 'CamillaDSP';
+    let label = 'CamillaDSP';
+    if (camillaVol && camillaStatus) {
+      const v = camillaStatus.main_volume_db;
+      const isExt = camillaStatus.external_volume;
+      if (typeof v === 'number' && !Number.isNaN(v)) {
+        camillaVol.textContent = ` ${v.toFixed(1)} dB` + (isExt ? ' (ext)' : '');
+      } else {
+        camillaVol.textContent = '';
+      }
+    }
+    camillaText.textContent = label;
   }
 }
 
@@ -952,7 +963,10 @@ function openOptionsModal(){
       let parts = [];
       if (status.ws_connected) parts.push('WS');
       if (status.tcp_connected) parts.push('TCP');
-      statusText.textContent = 'Connecté (' + parts.join('+') + ')';
+      const vol = (typeof status.main_volume_db === 'number' && !Number.isNaN(status.main_volume_db))
+        ? ` | Vol ${status.main_volume_db.toFixed(1)} dB${status.external_volume ? ' (ext)' : ''}`
+        : '';
+      statusText.textContent = 'Connecté (' + parts.join('+') + ')' + vol;
       statusText.style.color = '#2ecc71';
     } else {
       statusLed.style.backgroundColor = '#e74c3c';
