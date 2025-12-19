@@ -388,7 +388,8 @@ function createMasterSection() {
       let pv = pointerToValue(e.clientY);
       const {value} = pv;
       vslider._setValue(value);
-      // Le master n'envoie pas de commande au backend pour l'instant (juste visuel)
+      // Send master volume to backend
+      sendThrottled({type:'set_channel_level', payload:{channel:'master', level_db:parseFloat(value)}});
     }
     function onPointerUp(e){
       if (activePointer !== e.pointerId) return;
@@ -418,6 +419,8 @@ function createMasterSection() {
 
   const masterKnob = createKnob('LEVEL', 0, -60, 12, '#f39c12', (val) => {
     if (vslider && vslider._setValue) vslider._setValue(val);
+    // Send master volume change to backend
+    sendThrottled({type:'set_channel_level', payload:{channel:'master', level_db:parseFloat(val)}});
   });
   masterKnob.style.margin = '0';
   rightCol.appendChild(masterKnob);
@@ -755,6 +758,16 @@ function renderMixer(state) {
 
 // applyState: update existing DOM with new mixer state without rebuilding elements
 function applyState(state){
+  // Update master if present
+  if (state.master) {
+    const masterSlider = document.querySelector('#master-slider');
+    if (masterSlider && typeof masterSlider._setValue === 'function'){
+      if (!masterSlider._dragState) masterSlider._setValue(state.master.level_db || 0);
+    }
+    // Update master mute button if present (if implemented)
+    // TODO: add master mute/solo buttons if needed
+  }
+  // Update channels
   (state.channels || []).forEach((ch, i)=>{
     const el = document.getElementById('ch-' + i);
     if (!el) return;
@@ -777,27 +790,26 @@ function applyState(state){
 
 function updateLevels(levels) {
   levels.forEach(l => {
-    const levelEl = document.querySelector('#ch-' + l.channel + ' .vumeter .level');
+    let levelEl;
+    if (l.channel === 'master') {
+      levelEl = document.querySelector('#master-vumeter .level');
+    } else {
+      levelEl = document.querySelector('#ch-' + l.channel + ' .vumeter .level');
+    }
     if (levelEl) {
       const v = Math.max(-60, Math.min(12, l.level_db));
       const pct = Math.round(((v + 60) / 72) * 100);
       levelEl.style.height = pct + '%';
     }
   })
-  // compute master level as RMS-like (simple average of linearized levels)
+  // compute overall level as RMS-like (simple average of linearized levels, excluding master)
   try{
-    const vals = levels.map(l=>Math.max(-60, Math.min(12, l.level_db)));
+    const vals = levels.filter(l => l.channel !== 'master').map(l=>Math.max(-60, Math.min(12, l.level_db)));
     if (vals.length){
       // convert dB to linear 0..1 roughly
       const lin = vals.map(v=> Math.pow(10, (v/20)) );
       const avg = lin.reduce((a,b)=>a+b,0)/lin.length;
       const avgDb = 20 * Math.log10(Math.max(0.001, avg));
-      const pct = Math.round(((avgDb + 60) / 72) * 100);
-      // update master vu meter
-      const masterVu = document.querySelector('#master-vumeter .level');
-      if (masterVu){
-        masterVu.style.height = Math.max(0, Math.min(100, pct)) + '%';
-      }
       if (masterSpectrum && typeof masterSpectrum.update === 'function') {
         masterSpectrum.update(avgDb);
       }
