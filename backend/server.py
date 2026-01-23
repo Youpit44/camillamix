@@ -126,7 +126,7 @@ class MixerState:
             'level_db': 0.0,
             'mute': False,
             'solo': False,
-            'eq': {'low': 0.0, 'mid': 0.0, 'high': 0.0}
+            'eq': {'gain': 0.0, 'low': 0.0, 'mid': 0.0, 'high': 0.0}
         }
         self.channels = []
         for i in range(channels):
@@ -135,7 +135,7 @@ class MixerState:
                 'level_db': 0.0,
                 'mute': False,
                 'solo': False,
-                'eq': {'low': 0.0, 'mid': 0.0, 'high': 0.0}
+                'eq': {'gain': 0.0, 'low': 0.0, 'mid': 0.0, 'high': 0.0}
             })
 
     def to_dict(self):
@@ -321,7 +321,7 @@ async def websocket_handler(request):
                         if ch == 'master':
                             raise ValueError("EQ is not available for master")
                         band = str(payload.get('band', 'mid')).lower()
-                        if band not in ('low', 'mid', 'high'):
+                        if band not in ('gain', 'low', 'mid', 'high'):
                             raise ValueError(f"Invalid EQ band: {band}")
                         val = parse_db_value(payload.get('gain_db', 0.0))
                         app['mixer'].channels[ch]['eq'][band] = val
@@ -329,6 +329,7 @@ async def websocket_handler(request):
                         # Map to CamillaDSP filter names: Bass_N, Mid_N, Treble_N
                         # where N is the channel index
                         filter_map = {
+                            'gain': f'Gain_{ch}',
                             'low': f'Bass_{ch}',
                             'mid': f'Mid_{ch}',
                             'high': f'Treble_{ch}'
@@ -373,7 +374,7 @@ def map_yaml_to_state(yobj, channels=DEFAULT_CHANNELS):
             'level_db': 0.0,
             'mute': False,
             'solo': False,
-            'eq': {'low': 0.0, 'mid': 0.0, 'high': 0.0}
+            'eq': {'gain': 0.0, 'low': 0.0, 'mid': 0.0, 'high': 0.0}
         } for i in range(n)]
 
     # If yaml already contains a state structure we recognize
@@ -389,6 +390,7 @@ def map_yaml_to_state(yobj, channels=DEFAULT_CHANNELS):
                     out[i]['mute'] = bool(chs[i].get('mute', False))
                     out[i]['solo'] = bool(chs[i].get('solo', False))
                     eq = chs[i].get('eq', {}) or {}
+                    out[i]['eq']['gain'] = float(eq.get('gain', 0.0))
                     out[i]['eq']['low'] = float(eq.get('low', 0.0))
                     out[i]['eq']['mid'] = float(eq.get('mid', 0.0))
                     out[i]['eq']['high'] = float(eq.get('high', 0.0))

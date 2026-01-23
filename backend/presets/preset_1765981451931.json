@@ -1,87 +1,114 @@
 {
-  "version": 1,
-  "state": {
-    "channels": [
-      {
-        "index": 0,
-        "level_db": 0.0,
-        "mute": false,
-        "solo": false,
-        "eq": {
-          "low": 0.0,
-          "high": 0.0
-        }
-      },
-      {
-        "index": 1,
-        "level_db": 0.0,
-        "mute": false,
-        "solo": false,
-        "eq": {
-          "low": 0.0,
-          "high": 0.0
-        }
-      },
-      {
-        "index": 2,
-        "level_db": 0.0,
-        "mute": false,
-        "solo": false,
-        "eq": {
-          "low": 0.0,
-          "high": 0.0
-        }
-      },
-      {
-        "index": 3,
-        "level_db": 0.0,
-        "mute": false,
-        "solo": false,
-        "eq": {
-          "low": 0.0,
-          "high": 0.0
-        }
-      },
-      {
-        "index": 4,
-        "level_db": 0.0,
-        "mute": false,
-        "solo": false,
-        "eq": {
-          "low": 0.0,
-          "high": 0.0
-        }
-      },
-      {
-        "index": 5,
-        "level_db": 0.0,
-        "mute": false,
-        "solo": false,
-        "eq": {
-          "low": 0.0,
-          "high": 0.0
-        }
-      },
-      {
-        "index": 6,
-        "level_db": 0.0,
-        "mute": false,
-        "solo": false,
-        "eq": {
-          "low": 0.0,
-          "high": 0.0
-        }
-      },
-      {
-        "index": 7,
-        "level_db": 0.0,
-        "mute": false,
-        "solo": false,
-        "eq": {
-          "low": 0.0,
-          "high": 0.0
-        }
-      }
-    ]
-  }
+    "version": 1,
+    "state": {
+        "master": {
+            "index": "master",
+            "level_db": -24.24031808035714,
+            "mute": false,
+            "solo": false,
+            "eq": {
+                "gain": 0.0,
+                "low": 0.0,
+                "mid": 0.0,
+                "high": 0.0
+            }
+        },
+        "channels": [{
+                "index": 0,
+                "level_db": 1.6412527901785694,
+                "mute": false,
+                "solo": false,
+                "eq": {
+                    "gain": 12.0,
+                    "low": 2.415985107421875,
+                    "mid": 7.52923583984375,
+                    "high": 10.822845458984375
+                }
+            },
+            {
+                "index": 1,
+                "level_db": 3.315904017857143,
+                "mute": false,
+                "solo": false,
+                "eq": {
+                    "gain": 12.0,
+                    "low": 1.4765625,
+                    "mid": 6.002288818359375,
+                    "high": 12.0
+                }
+            },
+            {
+                "index": 2,
+                "level_db": 4.953766741071433,
+                "mute": false,
+                "solo": false,
+                "eq": {
+                    "gain": 12.0,
+                    "low": 1.94403076171875,
+                    "mid": 4.826263427734375,
+                    "high": 12.0
+                }
+            },
+            {
+                "index": 3,
+                "level_db": 5.740513392857139,
+                "mute": false,
+                "solo": false,
+                "eq": {
+                    "gain": 12.0,
+                    "low": 0.770263671875,
+                    "mid": 4.70855712890625,
+                    "high": 12.0
+                }
+            },
+            {
+                "index": 4,
+                "level_db": 5.097614397321436,
+                "mute": false,
+                "solo": false,
+                "eq": {
+                    "gain": 12.0,
+                    "low": 1.270263671875,
+                    "mid": 4.00225830078125,
+                    "high": 12.0
+                }
+            },
+            {
+                "index": 5,
+                "level_db": -0.6561872209821473,
+                "mute": false,
+                "solo": false,
+                "eq": {
+                    "gain": 12.0,
+                    "low": -0.260040283203125,
+                    "mid": -12.0,
+                    "high": -12.0
+                }
+            },
+            {
+                "index": 6,
+                "level_db": 0.0,
+                "mute": true,
+                "solo": false,
+                "eq": {
+                    "gain": 0.0,
+                    "low": 0.0,
+                    "mid": 0.0,
+                    "high": 0.0
+                }
+            },
+            {
+                "index": 7,
+                "level_db": 0.0,
+                "mute": true,
+                "solo": false,
+                "eq": {
+                    "gain": 0.0,
+                    "low": 0.0,
+                    "mid": 0.0,
+                    "high": 0.0
+                }
+            }
+        ]
+    }
 }

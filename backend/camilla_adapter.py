@@ -287,12 +287,15 @@ class CamillaAdapter:
                 # Filters (EQ)
                 filters = config.get('filters', {})
                 for dest in list(state['channels'].keys()):
-                    eq = {'low': 0.0, 'mid': 0.0, 'high': 0.0}
+                    eq = {'gain': 0.0, 'low': 0.0, 'mid': 0.0, 'high': 0.0}
                     
+                    gain_name = f'Gain_{dest}'
                     bass_name = f'Bass_{dest}'
                     mid_name = f'Mid_{dest}'
                     treble_name = f'Treble_{dest}'
-                    
+
+                    if gain_name in filters:
+                        eq['gain'] = filters[gain_name].get('parameters', {}).get('gain', 0.0)
                     if bass_name in filters:
                         eq['low'] = filters[bass_name].get('parameters', {}).get('gain', 0.0)
                     if mid_name in filters:
