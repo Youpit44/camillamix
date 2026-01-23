@@ -4,16 +4,34 @@ import logging
 import os
 import math
 import time
+import re
 from aiohttp import web, WSMsgType
 import yaml
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
 FRONTEND_DIR = os.path.join(ROOT, 'frontend')
 PRESETS_DIR = os.path.join(os.path.dirname(__file__), 'presets')
+SERVER_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'server_config.json')
 os.makedirs(PRESETS_DIR, exist_ok=True)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('server')
+
+# Load server config
+SERVER_CONFIG = {}
+if os.path.exists(SERVER_CONFIG_PATH):
+    try:
+        with open(SERVER_CONFIG_PATH, 'r') as f:
+            SERVER_CONFIG = json.load(f)
+    except Exception as e:
+        logger.error(f"Failed to load server config: {e}")
+
+# Apply initial logging state
+if not SERVER_CONFIG.get('console_enabled', True):
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+            handler.setLevel(logging.CRITICAL + 1)
 
 DEFAULT_CHANNELS = 8
 AUTOSAVE_DEFAULT_ENABLED = os.getenv('AUTOSAVE_ENABLED', '1') not in ('0', 'false', 'False')
@@ -93,6 +111,11 @@ def validate_preset_name(name: str) -> str:
     """
     if not name or not isinstance(name, str):
         raise ValueError("Preset name must be a non-empty string")
+    
+    # Strict validation to prevent path traversal
+    if not re.match(r'^[a-zA-Z0-9_-]+$', name):
+        raise ValueError("Preset name can only contain alphanumeric, underscore, hyphen")
+        
     return name
 
 
@@ -119,6 +142,41 @@ class MixerState:
         return {'master': self.master, 'channels': self.channels}
 
 
+def update_dsp_mutes(app):
+    """Calculate and apply effective mutes based on Mute and Solo states."""
+    mixer = app['mixer']
+    adapter = app['adapter']
+    
+    # Check if any channel is soloed (excluding master)
+    any_solo = any(ch['solo'] for ch in mixer.channels)
+    
+    mute_updates = []
+
+    # Update master mute
+    mute_updates.append((0, mixer.master['mute']))
+    
+    for ch in mixer.channels:
+        # Channel index in mixer state is 0..N-1
+        # Channel index in adapter is 1..N (because 0 is master)
+        adapter_ch = ch['index'] + 1
+        
+        if any_solo:
+            # If any solo is active, this channel is muted UNLESS it is soloed
+            should_mute = not ch['solo']
+        else:
+            # No solo active, respect user mute
+            should_mute = ch['mute']
+            
+        mute_updates.append((adapter_ch, should_mute))
+    
+    # Apply all mutes in one batch
+    if hasattr(adapter, 'set_mutes'):
+        adapter.set_mutes(mute_updates)
+    else:
+        for ch, m in mute_updates:
+            adapter.set_mute(ch, m)
+
+
 async def websocket_handler(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
@@ -126,6 +184,32 @@ async def websocket_handler(request):
     app = request.app
     app['sockets'].append(ws)
     logger.info('WebSocket client connected')
+
+    # Sync state from CamillaDSP
+    if app['adapter']._py_connected:
+        try:
+            loop = asyncio.get_running_loop()
+            dsp_state = await loop.run_in_executor(None, app['adapter'].get_current_state)
+            if dsp_state:
+                # Update Master
+                if 'level_db' in dsp_state['master']:
+                    app['mixer'].master['level_db'] = dsp_state['master']['level_db']
+                if 'mute' in dsp_state['master']:
+                    app['mixer'].master['mute'] = dsp_state['master']['mute']
+                
+                # Update Channels
+                for dest, ch_data in dsp_state['channels'].items():
+                    # Find channel with index == dest
+                    for ch in app['mixer'].channels:
+                        if ch['index'] == dest:
+                            ch['level_db'] = ch_data['level_db']
+                            ch['mute'] = ch_data['mute']
+                            if 'eq' in ch_data:
+                                ch['eq'] = ch_data['eq']
+                            break
+        except Exception as e:
+            logger.error(f"Error syncing with DSP: {e}")
+
     # send initial mixer state and initial levels so UI can render channels immediately
     try:
         await ws.send_json({'type': 'state', 'payload': app['mixer'].to_dict()})
@@ -182,12 +266,11 @@ async def websocket_handler(request):
                         m = bool(payload.get('mute', False))
                         if ch == 'master':
                             app['mixer'].master['mute'] = m
-                            # Map master to fader 0 in CamillaDSP
-                            app['adapter'].set_mute(0, m)
                         else:
                             app['mixer'].channels[ch]['mute'] = m
-                            # Map channel i to fader (i+1) in CamillaDSP
-                            app['adapter'].set_mute(ch + 1, m)
+                        
+                        # Recalculate and apply mutes
+                        update_dsp_mutes(app)
                         app['state_needs_broadcast'] = True
                     except ValueError as e:
                         await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_mute: {str(e)}'})
@@ -198,12 +281,11 @@ async def websocket_handler(request):
                         s = bool(payload.get('solo', False))
                         if ch == 'master':
                             app['mixer'].master['solo'] = s
-                            # Map master to fader 0 in CamillaDSP
-                            app['adapter'].set_solo(0, s)
                         else:
                             app['mixer'].channels[ch]['solo'] = s
-                            # Map channel i to fader (i+1) in CamillaDSP
-                            app['adapter'].set_solo(ch + 1, s)
+                        
+                        # Recalculate and apply mutes
+                        update_dsp_mutes(app)
                         app['state_needs_broadcast'] = True
                     except ValueError as e:
                         await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_solo: {str(e)}'})
@@ -212,9 +294,15 @@ async def websocket_handler(request):
                     # client wants to receive levels periodically; handled by broadcaster
                     await ws.send_json({'type': 'subscribed_levels', 'payload': {'interval_ms': payload.get('interval_ms', 100)}})
                 elif typ == 'save_preset':
-                    name = payload.get('name', 'preset')
-                    path = await app['presets'].save_preset(name, app['mixer'].to_dict())
-                    await ws.send_json({'type': 'preset_saved', 'payload': {'path': path}})
+                    try:
+                        name = validate_preset_name(payload.get('name', 'preset'))
+                        path = await app['presets'].save_preset(name, app['mixer'].to_dict())
+                        await ws.send_json({'type': 'preset_saved', 'payload': {'path': path}})
+                    except ValueError as e:
+                        await ws.send_json({'type': 'error', 'payload': f'Invalid preset name: {str(e)}'})
+                    except Exception as e:
+                        logger.error(f"Error saving preset: {e}")
+                        await ws.send_json({'type': 'error', 'payload': 'Save failed'})
                 elif typ == 'load_preset':
                     name = payload.get('name')
                     state = await app['presets'].load_preset(name)
@@ -237,7 +325,18 @@ async def websocket_handler(request):
                             raise ValueError(f"Invalid EQ band: {band}")
                         val = parse_db_value(payload.get('gain_db', 0.0))
                         app['mixer'].channels[ch]['eq'][band] = val
-                        # placeholder: adapter could forward to DSP if supported
+                        
+                        # Map to CamillaDSP filter names: Bass_N, Mid_N, Treble_N
+                        # where N is the channel index
+                        filter_map = {
+                            'low': f'Bass_{ch}',
+                            'mid': f'Mid_{ch}',
+                            'high': f'Treble_{ch}'
+                        }
+                        filter_name = filter_map.get(band)
+                        if filter_name:
+                            app['adapter'].set_filter_gain(filter_name, val)
+
                         app['state_needs_broadcast'] = True
                     except ValueError as e:
                         await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_eq: {str(e)}'})
@@ -393,18 +492,47 @@ async def broadcast_camilla_status(app):
 
 
 async def levels_broadcaster(app):
-    # Simulate VU meters if adapter doesn't provide them
+    # Broadcast levels (real or simulated)
     while True:
         try:
             levels = []
-            # Add master level first
-            master_level = max(-60.0, min(12.0, app['mixer'].master['level_db']))
-            levels.append({'channel': 'master', 'level_db': master_level, 'peak_db': master_level + 0.5})
-            # Add channel levels
-            for ch in app['mixer'].channels:
-                # simple mapping from level_db to a mock peak
-                level = max(-60.0, min(12.0, ch['level_db']))
-                levels.append({'channel': ch['index'], 'level_db': level, 'peak_db': level + 0.5})
+            real_levels = None
+            
+            # Try to get real levels from adapter
+            if hasattr(app['adapter'], 'get_playback_levels'):
+                # Run in thread to avoid blocking event loop with sync socket calls
+                try:
+                    real_levels = await asyncio.to_thread(app['adapter'].get_playback_levels)
+                except Exception:
+                    pass
+
+            if real_levels and real_levels.get('rms'):
+                rms_values = real_levels['rms']
+                peak_values = real_levels.get('peak', rms_values)
+                
+                # Calculate Master level (max of all channels)
+                master_rms = max(rms_values) if rms_values else -100.0
+                master_peak = max(peak_values) if peak_values else -100.0
+                levels.append({'channel': 'master', 'level_db': master_rms, 'peak_db': master_peak})
+                
+                # Map channels
+                # Assuming 1:1 mapping between UI channels (0..7) and playback channels (0..7)
+                for ch in app['mixer'].channels:
+                    idx = ch['index']
+                    if idx < len(rms_values):
+                        levels.append({'channel': idx, 'level_db': rms_values[idx], 'peak_db': peak_values[idx]})
+                    else:
+                        levels.append({'channel': idx, 'level_db': -100.0, 'peak_db': -100.0})
+            else:
+                # Fallback to simulation based on fader positions
+                # Add master level first
+                master_level = max(-60.0, min(12.0, app['mixer'].master['level_db']))
+                levels.append({'channel': 'master', 'level_db': master_level, 'peak_db': master_level + 0.5})
+                # Add channel levels
+                for ch in app['mixer'].channels:
+                    # simple mapping from level_db to a mock peak
+                    level = max(-60.0, min(12.0, ch['level_db']))
+                    levels.append({'channel': ch['index'], 'level_db': level, 'peak_db': level + 0.5})
 
             payload = {'type': 'levels', 'payload': {'channels': levels}}
             for ws in list(app['sockets']):
@@ -620,6 +748,46 @@ def create_app():
 
     app.router.add_get('/api/camilla_config', get_camilla_config)
     app.router.add_post('/api/camilla_config', post_camilla_config)
+
+    async def get_logging(request):
+        enabled = True
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers:
+            if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                if handler.level >= logging.CRITICAL:
+                    enabled = False
+                break
+        return web.json_response({'console_enabled': enabled})
+
+    async def post_logging(request):
+        try:
+            data = await request.json()
+            enabled = bool(data.get('console_enabled', True))
+            
+            root_logger = logging.getLogger()
+            for handler in root_logger.handlers:
+                if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                    if enabled:
+                        handler.setLevel(logging.INFO)
+                    else:
+                        handler.setLevel(logging.CRITICAL + 1)
+            
+            # Save to config
+            SERVER_CONFIG['console_enabled'] = enabled
+            try:
+                with open(SERVER_CONFIG_PATH, 'w') as f:
+                    json.dump(SERVER_CONFIG, f, indent=4)
+            except Exception as e:
+                logger.error(f"Failed to save server config: {e}")
+            
+            logger.info(f"Console logging set to {enabled}")
+            return web.json_response({'status': 'ok', 'console_enabled': enabled})
+        except Exception as e:
+            logger.exception("Error setting logging")
+            return web.json_response({'error': str(e)}, status=500)
+
+    app.router.add_get('/api/logging', get_logging)
+    app.router.add_post('/api/logging', post_logging)
 
     app.router.add_static('/', FRONTEND_DIR, show_index=True)
 

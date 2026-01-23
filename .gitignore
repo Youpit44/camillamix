@@ -1,4 +1,28 @@
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
 .venv/
+camillamix/
+
+# Runtime / Config
+active.json
+backend/server_config.json
 backend/presets/*.json
+!backend/presets/autosave.json
 backend/actions.log
+*.log
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Misc
+dist/
+build/
+*.egg-info/

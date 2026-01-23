@@ -122,31 +122,204 @@ class CamillaAdapter:
                     else:
                         self._py_client.volume.set_main_volume(lv)
                 else:
-                    # Only control Aux faders if they exist; many configs have up to 4
-                    # We avoid mapping UI channels to Aux faders to prevent confusion.
-                    # If you really want to map to Aux faders 1..4, uncomment next line.
-                    # self._py_client.volume.set_volume(ch, lv)
-                    pass
+                    # Map fader index back to mixer dest index
+                    # server.py sends ch+1 for UI channel ch
+                    mixer_dest = ch - 1
+                    self._update_mixer_gain(mixer_dest, lv)
+
             except Exception:
-                logger.exception('pycamilladsp set_main_volume/set_volume failed')
+                logger.exception('pycamilladsp set_level failed')
         msg = {"type": "set_channel_level", "payload": {"channel": channel, "level_db": level_db}}
         self._enqueue(msg)
 
+    def _update_mixer_gain(self, dest_index: int, level_db: float):
+        try:
+            config = self._py_client.config.active()
+            if not config:
+                return
+            
+            mixers = config.get('mixers', {})
+            updated = False
+            
+            for m_name, m_data in mixers.items():
+                mapping = m_data.get('mapping', [])
+                for entry in mapping:
+                    if entry.get('dest') == dest_index:
+                        sources = entry.get('sources', [])
+                        for src in sources:
+                            src['gain'] = level_db
+                            updated = True
+            
+            if updated:
+                self._py_client.config.set_active(config)
+        except Exception:
+            logger.exception('Failed to update mixer gain')
+
     def set_mute(self, channel: int, mute: bool):
+        self.set_mutes([(channel, mute)])
+
+    def set_mutes(self, items: list):
+        """
+        Batch update mutes.
+        items: list of (channel, mute) tuples.
+        """
         if self._py_client and self._py_connected:
             try:
-                ch = int(channel)
-                m = bool(mute)
-                if ch == 0:
-                    self._py_client.volume.set_main_mute(m)
-                else:
-                    # See note above: avoid mapping UI channels to Aux faders by default
-                    # self._py_client.volume.set_mute(ch, m)
-                    pass
+                # Separate master and channels
+                master_mute = None
+                channel_mutes = {} # dest_index -> mute
+
+                for ch, m in items:
+                    ch = int(ch)
+                    m = bool(m)
+                    if ch == 0:
+                        master_mute = m
+                    else:
+                        channel_mutes[ch - 1] = m
+
+                # Apply master mute if present
+                if master_mute is not None:
+                    self._py_client.volume.set_main_mute(master_mute)
+
+                # Apply channel mutes if present
+                if channel_mutes:
+                    self._update_mixer_mutes_batch(channel_mutes)
+
             except Exception:
-                logger.exception('pycamilladsp set_main_mute/set_mute failed')
-        msg = {"type": "set_channel_mute", "payload": {"channel": channel, "mute": bool(mute)}}
+                logger.exception('pycamilladsp set_mutes failed')
+
+        # Enqueue messages
+        for ch, m in items:
+            msg = {"type": "set_channel_mute", "payload": {"channel": ch, "mute": bool(m)}}
+            self._enqueue(msg)
+
+    def _update_mixer_mutes_batch(self, mute_map: dict):
+        """
+        mute_map: { dest_index: mute_bool }
+        """
+        try:
+            config = self._py_client.config.active()
+            if not config:
+                return
+            
+            mixers = config.get('mixers', {})
+            updated = False
+            
+            for m_name, m_data in mixers.items():
+                mapping = m_data.get('mapping', [])
+                for entry in mapping:
+                    dest = entry.get('dest')
+                    if dest in mute_map:
+                        target_mute = mute_map[dest]
+                        if entry.get('mute') != target_mute:
+                            entry['mute'] = target_mute
+                            updated = True
+            
+            if updated:
+                self._py_client.config.set_active(config)
+        except Exception:
+            logger.exception('Failed to update mixer mutes batch')
+
+    def _update_mixer_mute(self, dest_index: int, mute: bool):
+        self._update_mixer_mutes_batch({dest_index: mute})
+
+    def set_filter_gain(self, filter_name: str, gain_db: float):
+        """
+        Update the gain of a specific filter in the active configuration.
+        """
+        if self._py_client and self._py_connected:
+            try:
+                config = self._py_client.config.active()
+                if not config:
+                    return
+                
+                filters = config.get('filters', {})
+                updated = False
+                
+                if filter_name in filters:
+                    flt = filters[filter_name]
+                    # Check if it has parameters and gain
+                    if 'parameters' in flt and 'gain' in flt['parameters']:
+                        # Only update if changed to avoid unnecessary config reloads
+                        if flt['parameters']['gain'] != gain_db:
+                            flt['parameters']['gain'] = gain_db
+                            updated = True
+                
+                if updated:
+                    self._py_client.config.set_active(config)
+            except Exception:
+                logger.exception(f'Failed to update filter gain for {filter_name}')
+        
+        # Enqueue message for stub/logging
+        msg = {"type": "set_filter_gain", "payload": {"filter": filter_name, "gain_db": gain_db}}
         self._enqueue(msg)
+
+    def get_current_state(self):
+        """Retrieve current state (master vol/mute and mixer gains/mutes) from CamillaDSP."""
+        if not (self._py_client and self._py_connected):
+            return None
+        
+        state = {'master': {}, 'channels': {}}
+        try:
+            # Master
+            state['master']['level_db'] = self._py_client.volume.main_volume()
+            state['master']['mute'] = self._py_client.volume.main_mute()
+            
+            # Channels
+            config = self._py_client.config.active()
+            if config:
+                mixers = config.get('mixers', {})
+                for m_name, m_data in mixers.items():
+                    mapping = m_data.get('mapping', [])
+                    for entry in mapping:
+                        dest = entry.get('dest')
+                        if isinstance(dest, int):
+                            # Mute
+                            mute = entry.get('mute', False)
+                            # Gain
+                            gain = 0.0
+                            sources = entry.get('sources', [])
+                            if sources:
+                                gain = sources[0].get('gain', 0.0)
+                            
+                            state['channels'][dest] = {'level_db': gain, 'mute': mute}
+                
+                # Filters (EQ)
+                filters = config.get('filters', {})
+                for dest in list(state['channels'].keys()):
+                    eq = {'low': 0.0, 'mid': 0.0, 'high': 0.0}
+                    
+                    bass_name = f'Bass_{dest}'
+                    mid_name = f'Mid_{dest}'
+                    treble_name = f'Treble_{dest}'
+                    
+                    if bass_name in filters:
+                        eq['low'] = filters[bass_name].get('parameters', {}).get('gain', 0.0)
+                    if mid_name in filters:
+                        eq['mid'] = filters[mid_name].get('parameters', {}).get('gain', 0.0)
+                    if treble_name in filters:
+                        eq['high'] = filters[treble_name].get('parameters', {}).get('gain', 0.0)
+                    
+                    state['channels'][dest]['eq'] = eq
+                
+                logger.info(f"Retrieved state with EQ for {len(state['channels'])} channels")
+
+        except Exception:
+            logger.exception("Failed to get current state from CamillaDSP")
+            return None
+        return state
+
+    def get_playback_levels(self):
+        """Get current playback levels (RMS and Peak) from CamillaDSP."""
+        if not (self._py_client and self._py_connected):
+            return None
+        try:
+            # Get RMS and Peak for all playback channels
+            rms = self._py_client.levels.playback_rms()
+            peak = self._py_client.levels.playback_peak()
+            return {'rms': rms, 'peak': peak}
+        except Exception:
+            return None
 
     def set_solo(self, channel: int, solo: bool):
         msg = {"type": "set_channel_solo", "payload": {"channel": channel, "solo": bool(solo)}}

@@ -1,6 +1,17 @@
 {
   "version": 1,
   "state": {
+    "master": {
+      "index": "master",
+      "level_db": -14.0,
+      "mute": false,
+      "solo": false,
+      "eq": {
+        "low": 0.0,
+        "mid": 0.0,
+        "high": 0.0
+      }
+    },
     "channels": [
       {
         "index": 0,
@@ -37,13 +48,13 @@
       },
       {
         "index": 3,
-        "level_db": 0.0,
+        "level_db": -4.942885044642864,
         "mute": false,
         "solo": false,
         "eq": {
-          "low": 0.0,
+          "low": -9.0,
           "mid": 0.0,
-          "high": 0.0
+          "high": 9.0
         }
       },
       {
