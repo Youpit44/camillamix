@@ -1,0 +1,447 @@
+description: null
+devices:
+  adjust_period: 10
+  capture:
+    channels: 2
+    extra_samples: 0
+    format: S32LE
+    labels: null
+    read_bytes: null
+    skip_bytes: null
+    type: Stdin
+  capture_samplerate: 44100
+  chunksize: 2048
+  enable_rate_adjust: false
+  multithreaded: true
+  playback:
+    channels: 8
+    device: hw:sndrpihifiberry,0,0
+    format: S32LE
+    type: Alsa
+  queuelimit: 4
+  rate_measure_interval: null
+  resampler: null
+  samplerate: 96000
+  silence_threshold: null
+  silence_timeout: null
+  stop_on_rate_change: null
+  target_level: 3072
+  volume_limit: null
+  volume_ramp_time: null
+  worker_threads: null
+filters:
+  Bass_0:
+    description: null
+    parameters:
+      freq: 120
+      gain: 2.415985107421875
+      q: 0.9
+      type: Lowshelf
+    type: Biquad
+  Bass_1:
+    description: null
+    parameters:
+      freq: 120
+      gain: 1.4765625
+      q: 0.9
+      type: Lowshelf
+    type: Biquad
+  Bass_2:
+    description: null
+    parameters:
+      freq: 120
+      gain: 1.94403076171875
+      q: 0.9
+      type: Lowshelf
+    type: Biquad
+  Bass_3:
+    description: null
+    parameters:
+      freq: 120
+      gain: 0.770263671875
+      q: 0.9
+      type: Lowshelf
+    type: Biquad
+  Bass_4:
+    description: null
+    parameters:
+      freq: 120
+      gain: 1.270263671875
+      q: 0.9
+      type: Lowshelf
+    type: Biquad
+  Bass_5:
+    description: null
+    parameters:
+      freq: 120
+      gain: -0.260040283203125
+      q: 0.9
+      type: Lowshelf
+    type: Biquad
+  Bass_6:
+    description: null
+    parameters:
+      freq: 120
+      gain: -8
+      q: 0.9
+      type: Lowshelf
+    type: Biquad
+  Bass_7:
+    description: null
+    parameters:
+      freq: 120
+      gain: -7.5
+      q: 0.9
+      type: Lowshelf
+    type: Biquad
+  Gain_0:
+    description: null
+    parameters:
+      gain: 8.115447998046875
+      inverted: false
+      mute: false
+      scale: dB
+    type: Gain
+  Gain_1:
+    description: null
+    parameters:
+      gain: 7.99774169921875
+      inverted: false
+      mute: false
+      scale: dB
+    type: Gain
+  Gain_2:
+    description: null
+    parameters:
+      gain: 7.762298583984375
+      inverted: false
+      mute: false
+      scale: dB
+    type: Gain
+  Gain_3:
+    description: null
+    parameters:
+      gain: 8.350860595703125
+      inverted: false
+      mute: false
+      scale: dB
+    type: Gain
+  Gain_4:
+    description: null
+    parameters:
+      gain: 7.64459228515625
+      inverted: false
+      mute: false
+      scale: dB
+    type: Gain
+  Gain_5:
+    description: null
+    parameters:
+      gain: 7.762298583984375
+      inverted: false
+      mute: false
+      scale: dB
+    type: Gain
+  Gain_6:
+    description: null
+    parameters:
+      gain: 0
+      inverted: false
+      mute: false
+      scale: dB
+    type: Gain
+  Gain_7:
+    description: null
+    parameters:
+      gain: 0
+      inverted: false
+      mute: false
+      scale: dB
+    type: Gain
+  Mid_0:
+    description: null
+    parameters:
+      freq: 1000
+      gain: 7.52923583984375
+      q: 1
+      type: Peaking
+    type: Biquad
+  Mid_1:
+    description: null
+    parameters:
+      freq: 1000
+      gain: 6.002288818359375
+      q: 1
+      type: Peaking
+    type: Biquad
+  Mid_2:
+    description: null
+    parameters:
+      freq: 1000
+      gain: 4.826263427734375
+      q: 1
+      type: Peaking
+    type: Biquad
+  Mid_3:
+    description: null
+    parameters:
+      freq: 1000
+      gain: 4.70855712890625
+      q: 1
+      type: Peaking
+    type: Biquad
+  Mid_4:
+    description: null
+    parameters:
+      freq: 1000
+      gain: 4.00225830078125
+      q: 1
+      type: Peaking
+    type: Biquad
+  Mid_5:
+    description: null
+    parameters:
+      freq: 1000
+      gain: -12
+      q: 1
+      type: Peaking
+    type: Biquad
+  Mid_6:
+    description: null
+    parameters:
+      freq: 1000
+      gain: 0
+      q: 1
+      type: Peaking
+    type: Biquad
+  Mid_7:
+    description: null
+    parameters:
+      freq: 1000
+      gain: 0
+      q: 1
+      type: Peaking
+    type: Biquad
+  Treble_0:
+    description: null
+    parameters:
+      freq: 6500
+      gain: 8.46856689453125
+      q: 0.7
+      type: Highshelf
+    type: Biquad
+  Treble_1:
+    description: null
+    parameters:
+      freq: 6500
+      gain: 8.704010009765625
+      q: 0.7
+      type: Highshelf
+    type: Biquad
+  Treble_2:
+    description: null
+    parameters:
+      freq: 6500
+      gain: 8.939422607421875
+      q: 0.7
+      type: Highshelf
+    type: Biquad
+  Treble_3:
+    description: null
+    parameters:
+      freq: 6500
+      gain: 8.35089111328125
+      q: 0.7
+      type: Highshelf
+    type: Biquad
+  Treble_4:
+    description: null
+    parameters:
+      freq: 6500
+      gain: 8.233154296875
+      q: 0.7
+      type: Highshelf
+    type: Biquad
+  Treble_5:
+    description: null
+    parameters:
+      freq: 6500
+      gain: -12
+      q: 0.7
+      type: Highshelf
+    type: Biquad
+  Treble_6:
+    description: null
+    parameters:
+      freq: 6500
+      gain: 8
+      q: 0.7
+      type: Highshelf
+    type: Biquad
+  Treble_7:
+    description: null
+    parameters:
+      freq: 6500
+      gain: 8.5
+      q: 0.7
+      type: Highshelf
+    type: Biquad
+mixers:
+  2x8:
+    channels:
+      in: 2
+      out: 8
+    description: null
+    labels: null
+    mapping:
+    - dest: 0
+      mute: false
+      sources:
+      - channel: 0
+        gain: 1.6412527901785694
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 1
+      mute: false
+      sources:
+      - channel: 1
+        gain: 3.315904017857143
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 2
+      mute: false
+      sources:
+      - channel: 0
+        gain: 4.953766741071433
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 3
+      mute: false
+      sources:
+      - channel: 1
+        gain: 5.740513392857139
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 4
+      mute: false
+      sources:
+      - channel: 0
+        gain: 5.097614397321436
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 5
+      mute: false
+      sources:
+      - channel: 1
+        gain: -0.6561872209821473
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 6
+      mute: true
+      sources:
+      - channel: 0
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 7
+      mute: true
+      sources:
+      - channel: 1
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+pipeline:
+- bypassed: false
+  description: null
+  name: 2x8
+  type: Mixer
+- bypassed: false
+  channels:
+  - 0
+  description: null
+  names:
+  - Bass_0
+  - Mid_0
+  - Treble_0
+  - Gain_0
+  type: Filter
+- bypassed: false
+  channels:
+  - 1
+  description: null
+  names:
+  - Bass_1
+  - Mid_1
+  - Treble_1
+  - Gain_1
+  type: Filter
+- bypassed: false
+  channels:
+  - 2
+  description: null
+  names:
+  - Bass_2
+  - Mid_2
+  - Treble_2
+  - Gain_2
+  type: Filter
+- bypassed: false
+  channels:
+  - 3
+  description: null
+  names:
+  - Bass_3
+  - Mid_3
+  - Treble_3
+  - Gain_3
+  type: Filter
+- bypassed: false
+  channels:
+  - 4
+  description: null
+  names:
+  - Bass_4
+  - Mid_4
+  - Treble_4
+  - Gain_4
+  type: Filter
+- bypassed: false
+  channels:
+  - 5
+  description: null
+  names:
+  - Bass_5
+  - Mid_5
+  - Treble_5
+  - Gain_5
+  type: Filter
+- bypassed: false
+  channels:
+  - 6
+  description: null
+  names:
+  - Bass_6
+  - Mid_6
+  - Treble_6
+  - Gain_6
+  type: Filter
+- bypassed: false
+  channels:
+  - 7
+  description: null
+  names:
+  - Bass_7
+  - Mid_7
+  - Treble_7
+  - Gain_7
+  type: Filter
+processors: {}
+title: Streamer

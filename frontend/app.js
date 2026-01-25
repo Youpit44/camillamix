@@ -1,34 +1,37 @@
 import { connect, camillaStatus } from './socket.js';
-import { initUI, initUIHandlers, renderMixer, applyState, updateLevels, applyAutosaveSettings, updateStatusBar } from './ui.js';
+import { initUI, initUIHandlers, renderMixer, applyState, updateLevels, applyAutosaveSettings, updateStatusBar, updateSpectrum } from './ui.js';
 
 function init() {
-  initUI();
-  initUIHandlers();
+    initUI();
+    initUIHandlers();
 
-  connect({
-    onOpen: () => {
-      updateStatusBar(true, camillaStatus.connected);
-    },
-    onClose: () => {
-      updateStatusBar(false, false);
-    },
-    onState: (payload) => {
-      const mixerEl = document.getElementById('mixer');
-      if (!mixerEl || mixerEl.children.length === 0) {
-        renderMixer(payload);
-      }
-      applyState(payload);
-    },
-    onLevels: (payload) => {
-      updateLevels(payload.channels);
-    },
-    onAutosaveSettings: (payload) => {
-      applyAutosaveSettings(payload);
-    },
-    onCamillaStatus: (payload) => {
-      updateStatusBar(true, payload.connected);
-    }
-  });
+    connect({
+        onOpen: () => {
+            updateStatusBar(true, camillaStatus.connected);
+        },
+        onClose: () => {
+            updateStatusBar(false, false);
+        },
+        onState: (payload) => {
+            const mixerEl = document.getElementById('mixer');
+            if (!mixerEl || mixerEl.children.length === 0) {
+                renderMixer(payload);
+            }
+            applyState(payload);
+        },
+        onLevels: (payload) => {
+            updateLevels(payload.channels);
+        },
+        onAutosaveSettings: (payload) => {
+            applyAutosaveSettings(payload);
+        },
+        onCamillaStatus: (payload) => {
+            updateStatusBar(true, payload.connected);
+        },
+        onSpectrum: (payload) => {
+            updateSpectrum(payload);
+        }
+    });
 }
 
 window.addEventListener('load', init);

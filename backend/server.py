@@ -256,7 +256,8 @@ async def websocket_handler(request):
                             # Map channel i to fader (i+1) in CamillaDSP
                             app['adapter'].set_level(ch + 1, lvl)
                         # mark that state should be broadcast by the periodic broadcaster
-                        app['state_needs_broadcast'] = True
+                        if 'shared_state' in app:
+                            app['shared_state']['state_needs_broadcast'] = True
                     except ValueError as e:
                         await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_level: {str(e)}'})
                         continue
@@ -271,7 +272,8 @@ async def websocket_handler(request):
                         
                         # Recalculate and apply mutes
                         update_dsp_mutes(app)
-                        app['state_needs_broadcast'] = True
+                        if 'shared_state' in app:
+                            app['shared_state']['state_needs_broadcast'] = True
                     except ValueError as e:
                         await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_mute: {str(e)}'})
                         continue
@@ -286,13 +288,21 @@ async def websocket_handler(request):
                         
                         # Recalculate and apply mutes
                         update_dsp_mutes(app)
-                        app['state_needs_broadcast'] = True
+                        if 'shared_state' in app:
+                            app['shared_state']['state_needs_broadcast'] = True
                     except ValueError as e:
                         await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_solo: {str(e)}'})
                         continue
                 elif typ == 'subscribe_levels':
                     # client wants to receive levels periodically; handled by broadcaster
                     await ws.send_json({'type': 'subscribed_levels', 'payload': {'interval_ms': payload.get('interval_ms', 100)}})
+                elif typ == 'subscribe_spectrum':
+                    enabled = bool(payload.get('enabled', True))
+                    # Use a mutable object in app or just a global flag?
+                    # App state mutation is deprecated.
+                    # We can use a custom object attached to app on startup.
+                    app['shared_state']['spectrum_enabled'] = enabled
+                    await ws.send_json({'type': 'subscribed_spectrum', 'payload': {'enabled': enabled}})
                 elif typ == 'save_preset':
                     try:
                         name = validate_preset_name(payload.get('name', 'preset'))
@@ -338,7 +348,8 @@ async def websocket_handler(request):
                         if filter_name:
                             app['adapter'].set_filter_gain(filter_name, val)
 
-                        app['state_needs_broadcast'] = True
+                        if 'shared_state' in app:
+                            app['shared_state']['state_needs_broadcast'] = True
                     except ValueError as e:
                         await ws.send_json({'type': 'error', 'payload': f'Invalid set_channel_eq: {str(e)}'})
                         continue
@@ -493,7 +504,51 @@ async def broadcast_camilla_status(app):
             pass
 
 
+async def spectrum_broadcaster(app):
+    # Broadcast spectrum data (signal window)
+    while True:
+        try:
+            # Check shared state
+            enabled = False
+            if 'shared_state' in app and 'spectrum_enabled' in app['shared_state']:
+                enabled = app['shared_state']['spectrum_enabled']
+            elif app.get('spectrum_enabled'): # fallback
+                enabled = True
+                
+            if enabled:
+                # Fetch signal window
+                # Use a reasonable size, e.g. 2048 or 4096
+                sig = None
+                if hasattr(app['adapter'], 'get_signal_window'):
+                     try:
+                        sig = await asyncio.to_thread(app['adapter'].get_signal_window, 4096)
+                     except Exception:
+                         pass
+                
+                if sig:
+                    # sig is likely a list of floats.
+                    # We send it as is. Client will handle de-interleaving and FFT.
+                    payload = {'type': 'spectrum', 'payload': {'samples': sig}}
+                    # Broadcast to all (optimization: only to subscribers if we tracked them per socket)
+                    for ws in list(app['sockets']):
+                        try:
+                            await ws.send_json(payload)
+                        except Exception:
+                            pass
+            
+            # 30 FPS approx
+            await asyncio.sleep(0.033)
+            
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            logger.exception('error in spectrum broadcaster')
+            await asyncio.sleep(1)
+
+
 async def levels_broadcaster(app):
+    # Local counter avoids mutating app state after startup (aiohttp deprecates that)
+    camilla_status_counter = 0
     # Broadcast levels (real or simulated)
     while True:
         try:
@@ -544,18 +599,23 @@ async def levels_broadcaster(app):
                     pass
 
             # if state update requested, broadcast state (debounced by this periodic loop)
-            if app.get('state_needs_broadcast'):
+            needs_broadcast = False
+            if 'shared_state' in app and app['shared_state'].get('state_needs_broadcast'):
+                needs_broadcast = True
+                app['shared_state']['state_needs_broadcast'] = False
+            elif app.get('state_needs_broadcast'): # fallback
+                needs_broadcast = True
+                app['state_needs_broadcast'] = False
+            
+            if needs_broadcast:
                 try:
                     await broadcast_state(app)
                 except Exception:
                     logger.exception('failed broadcasting state')
-                app['state_needs_broadcast'] = False
 
             # periodically broadcast CamillaDSP status (every 10 iterations = 2s)
-            if not hasattr(app, '_camilla_status_counter'):
-                app['_camilla_status_counter'] = 0
-            app['_camilla_status_counter'] = (app['_camilla_status_counter'] + 1) % CAMILLA_STATUS_BROADCAST_INTERVAL
-            if app['_camilla_status_counter'] == 0:
+            camilla_status_counter = (camilla_status_counter + 1) % CAMILLA_STATUS_BROADCAST_INTERVAL
+            if camilla_status_counter == 0:
                 try:
                     await broadcast_camilla_status(app)
                 except Exception:
@@ -576,8 +636,14 @@ def create_app():
     app = web.Application()
     app['sockets'] = []
     app['mixer'] = MixerState(channels=DEFAULT_CHANNELS)
+    # shared mutable state container to avoid app dict mutation warnings
+    app['shared_state'] = {
+        'spectrum_enabled': False,
+        'state_needs_broadcast': False
+    }
     # flag used to request a state broadcast from the periodic broadcaster
-    app['state_needs_broadcast'] = False
+    app['state_needs_broadcast'] = False # Deprecated, init only
+    app['spectrum_enabled'] = False # Deprecated, kept for init but not mutated
     app['autosave_enabled'] = AUTOSAVE_DEFAULT_ENABLED
     app['autosave_interval'] = AUTOSAVE_DEFAULT_INTERVAL
     from .camilla_adapter import CamillaAdapter
@@ -803,6 +869,8 @@ def create_app():
                 logger.exception('adapter start failed')
         # start levels broadcaster
         app['broadcaster_task'] = asyncio.create_task(levels_broadcaster(app))
+        # start spectrum broadcaster
+        app['spectrum_task'] = asyncio.create_task(spectrum_broadcaster(app))
         # start autosave task
         async def autosave_loop():
             while True:
@@ -827,6 +895,14 @@ def create_app():
             task.cancel()
             try:
                 await task
+            except asyncio.CancelledError:
+                pass
+        # stop spectrum
+        st = app.get('spectrum_task')
+        if st:
+            st.cancel()
+            try:
+                await st
             except asyncio.CancelledError:
                 pass
         # stop autosave

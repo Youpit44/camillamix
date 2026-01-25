@@ -58,6 +58,10 @@ Pour lancer le serveur manuellement :
 # Assurez-vous que l'environnement virtuel est activé
 python backend/server.py
 ```
+ou
+```bash
+python -m backend.server
+```
 
 Le serveur démarrera par défaut sur le port **8080**.
 Accédez à l'interface via : `http://votre-ip:8080`

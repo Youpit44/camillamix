@@ -324,6 +324,15 @@ class CamillaAdapter:
         except Exception:
             return None
 
+    def get_signal_window(self, n: int = 4096):
+        """Get signal window samples."""
+        if not (self._py_client and self._py_connected):
+            return None
+        try:
+            return self._py_client.query("GetSignalWindow", int(n))
+        except Exception:
+            return None
+
     def set_solo(self, channel: int, solo: bool):
         msg = {"type": "set_channel_solo", "payload": {"channel": channel, "solo": bool(solo)}}
         self._enqueue(msg)

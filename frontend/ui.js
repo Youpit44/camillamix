@@ -363,8 +363,6 @@ function createMasterSection() {
     return c;
 }
 
-cat / tmp / events.log | jq '("[" + .player_name + "] " + .playlist_loop[].artist + ": " + .playlist_loop[].tracknum + "-" + .playlist_loop[].title + " (" + .playlist_loop[].album + ")")'
-
 function createChannelElement(i, state) {
     const c = document.createElement('div');
     c.className = 'channel';
@@ -749,8 +747,9 @@ export function updateLevels(levels) {
         }
 
         if (levelEl) {
-            const v = Math.max(-60, Math.min(12, l.level_db));
-            const pct = Math.round(((v + 60) / 72) * 100);
+            // Scale -80dB to 0dB to make meter look fuller
+            const v = Math.max(-80, l.level_db);
+            const pct = Math.min(100, Math.max(0, ((v + 80) / 80) * 100));
             levelEl.style.height = pct + '%';
         }
     })
@@ -1232,6 +1231,12 @@ export function initUIHandlers() {
             }
             ev.target.value = '';
         });
+    }
+}
+
+export function updateSpectrum(payload) {
+    if (masterSpectrum && typeof masterSpectrum.receiveData === 'function') {
+        masterSpectrum.receiveData(payload);
     }
 }
 
