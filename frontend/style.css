@@ -1,0 +1,113 @@
+
+body { font-family: Arial, sans-serif; margin: 0; padding:12px; background: #111; color: #eee }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:8px 12px; background:linear-gradient(180deg,#1a1a1a,#0f0f0f); border-radius:6px; box-shadow:0 2px 8px rgba(0,0,0,0.4) }
+.header h1 { margin:0; font-size:18px }
+.status-bar { display:flex; gap:16px; align-items:center }
+.status-item { display:flex; align-items:center; gap:6px }
+.status-led { width:10px; height:10px; border-radius:50%; background:#555; box-shadow:inset 0 1px 2px rgba(0,0,0,0.5) }
+.status-led.connected { background:#2ecc71; box-shadow:0 0 8px rgba(46,204,113,0.6), inset 0 1px 2px rgba(255,255,255,0.3) }
+.status-led.disconnected { background:#e74c3c; box-shadow:0 0 6px rgba(231,76,60,0.5) }
+.status-text { font-size:11px; color:#999; font-weight:500; letter-spacing:0.3px }
+.status-text.connected { color:#2ecc71 }
+.status-text.disconnected { color:#e74c3c }
+.controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; position:sticky; top:0; background:rgba(17,17,17,0.95); padding:8px; z-index:20; border-radius:6px }
+.console { background: linear-gradient(180deg,#0f0f10,#09090a); padding:16px; border-radius:8px; box-shadow: 0 6px 30px rgba(0,0,0,0.8); }
+.mixer-container { display:flex; gap:20px; align-items:flex-end; padding:20px; overflow-x:auto; justify-content:center; }
+.mixer { display:flex; gap:18px; align-items:flex-end; padding:0; overflow:visible; }
+.modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.65); display:flex; align-items:center; justify-content:center; z-index:9998; }
+.modal { background:#161616; border:1px solid #2c2c2c; border-radius:10px; min-width:340px; max-width:420px; padding:18px; box-shadow:0 14px 40px rgba(0,0,0,0.55); }
+.modal h2 { margin:0 0 12px 0; font-size:16px; letter-spacing:0.5px; }
+.modal-section { margin-bottom:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.modal label { color:#ddd; font-size:13px; }
+.modal input[type="number"] { width:80px; padding:6px; border-radius:6px; border:1px solid #333; background:#0f0f0f; color:#eee; }
+.modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:8px; }
+.btn.secondary { background:#444; }
+.channel { min-width:140px; width:140px; flex:0 0 auto; background:linear-gradient(180deg,#101112 0%,#0a0a0b 70%); padding:12px; border-radius:8px; text-align:center; box-shadow:inset 0 -4px 10px rgba(0,0,0,0.6), 0 8px 26px rgba(0,0,0,0.6); border:1px solid #141414 }
+/* subtle hardware texture (stripes) */
+.channel::before{ content:''; position:absolute; left:0; right:0; top:0; bottom:0; border-radius:8px; pointer-events:none; background-image: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0.03) 50%); mix-blend-mode:overlay }
+.channel { position:relative }
+.fader-wrapper { height: 260px; display:flex; align-items:center; justify-content:center; position:relative }
+.fader { display:none }
+
+/* Custom vertical slider (stable variant) */
+.vslider { width:36px; height:240px; background:linear-gradient(180deg,#0e0e0f,#0b0b0c); border-radius:6px; position:relative; box-shadow: inset 0 2px 8px rgba(0,0,0,0.6); margin:0 6px; padding-top:6px }
+.vslider .track { position:absolute; left:50%; transform:translateX(-50%); top:14px; bottom:14px; width:10px; background:linear-gradient(180deg,#2a2a2a,#1a1a1a); border-radius:6px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02) }
+.vslider .fill { position:absolute; left:50%; transform:translateX(-50%); bottom:14px; width:10px; height:0%; background:linear-gradient(180deg,#16a085,#f39c12,#c0392b); border-radius:6px }
+.vslider .thumb { position:absolute; left:50%; width:34px; height:18px; background:linear-gradient(180deg,#3a8bd6,#1b73c6); border-radius:10px; box-shadow:0 6px 12px rgba(0,0,0,0.6); border:2px solid rgba(255,255,255,0.16); transform:translate(-50%,0); }
+.vslider .thumb::after{ content:''; position:absolute; left:50%; transform:translateX(-50%); top:4px; width:10px; height:4px; background:rgba(255,255,255,0.6); border-radius:2px; opacity:0.9 }
+
+/* ensure pointer events and no native touch scrolling */
+.vslider { touch-action: none; cursor: ns-resize; user-select: none }
+
+/* style for webkit browsers */
+.fader::-webkit-slider-runnable-track { height:8px; background:#2a2a2a; border-radius:6px; box-shadow:inset 0 1px 0 rgba(255,255,255,0.02) }
+.fader::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:32px; background:linear-gradient(#fff,#ddd); border-radius:4px; border:1px solid #888; box-shadow:0 4px 10px rgba(0,0,0,0.6) }
+/* firefox */
+.fader::-moz-range-track { height:6px; background:#444; border-radius:4px }
+.fader::-moz-range-thumb { width:20px; height:28px; background:#ddd; border-radius:3px; border:1px solid #999 }
+.btn { display:block; margin-top:8px; padding:8px 10px; background:#2b2b2b; color:#fff; border-radius:6px; cursor:pointer; font-size:13px; border:1px solid #444 }
+.btn.icon { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:8px; width:44px; height:36px }
+.btn.icon .icon-svg{ width:18px; height:18px }
+.btn.small.icon{ width:36px; height:32px; padding:6px }
+.btn.icon:hover{ filter:brightness(1.05) }
+.btn .icon-svg { display:block }
+.vu { width:22px; display:inline-block; vertical-align:middle; margin-right:10px; display:flex; flex-direction:column-reverse; align-items:center; justify-content:flex-start; padding:6px 6px }
+.vumeter { width:100%; height:140px; background:#111; border-radius:6px; position:relative; overflow:hidden; box-shadow: inset 0 2px 6px rgba(0,0,0,0.6) }
+.vumeter .level { position:absolute; left:0; right:0; bottom:0; height:0%; background: linear-gradient(180deg,#2ecc71,#f1c40f,#e74c3c); transition: height 80ms linear }
+.valuelabel { font-size:12px; margin-top:6px; color:#ddd }
+
+/* keep the value label out of layout flow to avoid shifting the slider */
+.fader-wrapper { position:relative }
+.valuelabel { position:absolute; bottom:-18px; left:50%; transform:translateX(-50%); width:100%; text-align:center; margin-top:0; font-weight:600; color:#ddd }
+
+/* make thumb transforms GPU-accelerated and smooth */
+.vslider .thumb { will-change: transform; transition: transform 40ms linear }
+
+.channel-header { font-weight:700; margin-bottom:6px; font-size:13px; letter-spacing:1px }
+.channel-header .ch-icon{ display:inline-block; vertical-align:middle; margin-right:6px }
+.channel-header svg{ filter: drop-shadow(0 1px 0 rgba(0,0,0,0.6)); }
+.strip { display:flex; align-items:flex-end; justify-content:center }
+.strip .controls { display:flex; flex-direction:column; align-items:center }
+
+/* master strip */
+.master { display:block; flex:0 0 auto; }
+.master-channel {
+  min-width:140px;
+  width:140px;
+  background:linear-gradient(180deg,#1a1410,#0f0c09);
+  border:1px solid #2a2010;
+  box-shadow:inset 0 -4px 10px rgba(0,0,0,0.7), 0 8px 28px rgba(255,165,0,0.15);
+  padding:12px;
+  border-radius:8px;
+  text-align:center;
+  position:relative;
+}
+/* spectrum output visualizer (full width) */
+.spectrum-container { width:100%; padding:12px; background:linear-gradient(180deg,#0f0f0f,#1a1a1a); border-bottom:1px solid #222; box-shadow: inset 0 2px 6px rgba(0,0,0,0.4); margin-bottom:12px; }
+.spectrum { width:100%; height:70px; display:flex; gap:2px; align-items:flex-end; padding:6px 4px; background:rgba(0,0,0,0.3); border:1px solid #1a1a1a; border-radius:6px; box-shadow: inset 0 2px 6px rgba(0,0,0,0.5); }
+.spectrum-bar { flex:1; background: linear-gradient(180deg,#2ecc71,#f1c40f,#e74c3c); border-radius:2px 2px 0 0; min-height:3px; }
+/* channel control buttons */
+.btn.small { padding:6px 8px; font-size:13px; border-radius:4px; min-width:36px }
+.btn.state-on { background:#c0392b; color:#fff }
+.btn.state-solo { background:#16a085 }
+
+/* subtle panel grid */
+body::before{ content:''; position:fixed; inset:0; background-image: linear-gradient(transparent 24px, rgba(255,255,255,0.01) 25px); pointer-events:none; opacity:0.03 }
+
+h1 { font-size:18px; margin:0 0 8px 0 }
+
+/* Mobile adjustments */
+@media (max-width: 800px) {
+	.channel { width:72px; padding:6px }
+	.fader { height:120px }
+	.btn { padding:10px 12px; font-size:15px }
+	.controls { padding:6px }
+}
+
+@media (max-width: 480px) {
+	body { padding:8px }
+	.channel { width:64px }
+	.fader { height:110px }
+	.mixer { gap:8px }
+	h1 { font-size:16px }
+}

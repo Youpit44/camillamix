@@ -1,7 +1,7 @@
-Projet: CamillaDSP Mixer UI
+Projet: CamillaDSP Mixer UI (Interface table de mixage style Numark)
 
 Objectif:
-Créer une interface console de mixage (faders volume, boutons aigu/grave) connectée au backend CamillaDSP/CamillaGUI en python3.
+Créer une interface web de mixage visuelle proche d'une table Numark (faders verticaux, onglets par canal, LED/VU meters, boutons EQs/High-Low, mute/solo, master) connectée au backend CamillaDSP/CamillaGUI en Python3.
 
 Fonctionnalités requises:
 1. Interface console avec faders pour le volume de chaque canal.
