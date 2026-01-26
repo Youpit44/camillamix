@@ -808,7 +808,8 @@ export function openOptionsModal() {
     backdrop.className = 'modal-backdrop';
     const modal = document.createElement('div');
     modal.className = 'modal';
-    modal.style.minWidth = '400px';
+    // Remove fixed minWidth for responsiveness content is handled via CSS
+    // modal.style.minWidth = '400px';
 
     const title = document.createElement('h2');
     title.textContent = 'Options & Presets';
@@ -828,6 +829,7 @@ export function openOptionsModal() {
     presetRow1.style.display = 'flex';
     presetRow1.style.gap = '8px';
     presetRow1.style.marginBottom = '6px';
+    presetRow1.style.flexWrap = 'wrap';
     const btnSavePreset = document.createElement('button');
     btnSavePreset.className = 'btn';
     btnSavePreset.textContent = 'Sauvegarder';
@@ -858,6 +860,7 @@ export function openOptionsModal() {
     presetRow3.style.display = 'flex';
     presetRow3.style.gap = '8px';
     presetRow3.style.alignItems = 'center';
+    presetRow3.style.flexWrap = 'wrap';
     const btnExport = document.createElement('button');
     btnExport.className = 'btn';
     btnExport.textContent = 'Exporter JSON';

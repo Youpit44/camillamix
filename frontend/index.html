@@ -5,24 +5,27 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>CamillaMixer</title>
-    <link rel="stylesheet" href="/style.css?v=2">
+    <link rel="stylesheet" href="/style.css?v=5">
 </head>
 
 <body>
     <div class="header">
         <h1>CamillaMixer (prototype)</h1>
-        <div id="controls" class="controls">
-            <label for="presetName">Preset:</label>
-            <input id="presetName" placeholder="MonPreset" style="width:140px">
-        </div>
-        <div id="statusBar" class="status-bar">
-            <div class="status-item">
-                <span class="status-led" id="wsStatusLed"></span>
-                <span class="status-text" id="wsStatusText">WebSocket</span>
+        <div class="controls-wrapper">
+            <div id="controls" class="controls">
+                <label for="presetName">Preset:</label>
+                <input id="presetName" placeholder="MonPreset" style="width:140px">
             </div>
-            <div class="status-item">
-                <span class="status-led" id="camillaStatusLed"></span>
-                <span class="status-text" id="camillaStatusText">CamillaDSP</span>
+            <div id="statusBar" class="status-bar row-layout">
+                <div class="status-item">
+                    <span class="status-led" id="wsStatusLed"></span>
+                    <span class="status-text" id="wsStatusText">WebSocket</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-led" id="camillaStatusLed"></span>
+                    <span class="status-text" id="camillaStatusText">CamillaDSP</span>
+                    <span class="status-text" id="camillaStatusVol"></span>
+                </div>
             </div>
         </div>
     </div>

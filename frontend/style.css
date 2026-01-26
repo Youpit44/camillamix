@@ -111,10 +111,12 @@ body {
     background: #161616;
     border: 1px solid #2c2c2c;
     border-radius: 10px;
-    min-width: 340px;
-    max-width: 420px;
+    width: 90%;
+    max-width: 450px;
     padding: 18px;
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .modal h2 {
@@ -571,5 +573,74 @@ h1 {
     }
     h1 {
         font-size: 16px
+    }
+}
+
+.status-bar.integrated {
+    margin-left: 10px;
+    padding-left: 10px;
+    border-left: 1px solid #333;
+    gap: 12px;
+}
+
+#camillaStatusVol {
+    color: #888;
+    margin-left: 2px;
+}
+
+@media (max-width: 600px) {
+    .header h1 {
+        display: none;
+        /* Hide title on small screens to save space */
+    }
+    .status-bar.integrated {
+        padding-left: 6px;
+        margin-left: 6px;
+        gap: 8px;
+    }
+    /* Hide the static labels "WebSocket" / "CamillaDSP" */
+    #wsStatusText,
+    #camillaStatusText {
+        display: none;
+    }
+    /* But ensure volume is still visible if needed */
+    #camillaStatusVol {
+        font-size: 10px;
+    }
+}
+
+.controls-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.status-bar.row-layout {
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 0;
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .controls-wrapper {
+        width: 100%;
+        align-items: center;
+    }
+    .status-bar.row-layout {
+        justify-content: center;
+    }
+}
+@media (max-width: 600px) {
+    .modal-section .btn {
+        flex: 1;
+        min-width: 45%;
+        justify-content: center;
+    }
+    .modal input[type="text"], 
+    .modal select {
+        width: 100%;
+        max-width: none;
     }
 }
