@@ -6,6 +6,7 @@ let autosaveEnabled = false;
 let autosaveInterval = 30;
 let masterSpectrum = null;
 let updateCamillaStatusUI_Callback = null;
+let currentMasterDb = 0;
 
 const domCache = {
     masterLevel: null,
@@ -46,7 +47,7 @@ export function updateStatusBar(wsConnected, camillaConnected) {
     }
 }
 
-function createKnob(label, initialValue, min, max, color, onChange) {
+export function createKnob(label, initialValue, min, max, color, onChange) {
     const wrap = document.createElement('div');
     wrap.className = 'knob-wrap';
     wrap.style.display = 'flex';
@@ -688,6 +689,7 @@ export function applyState(state) {
     const anySolo = (state.channels || []).some(c => c.solo);
 
     if (state.master) {
+        if (typeof state.master.level_db === 'number') currentMasterDb = state.master.level_db;
         const masterSlider = document.querySelector('#master-slider');
         if (masterSlider && typeof masterSlider._setValue === 'function') {
             if (!masterSlider._dragState) masterSlider._setValue(state.master.level_db || 0);
@@ -1289,6 +1291,44 @@ export function initUIHandlers() {
             ev.target.value = '';
         });
     }
+
+    // Focus helper for iframes or embedded views
+    document.addEventListener('click', () => {
+        try { window.focus(); } catch (e) {}
+    });
+
+    // Keyboard control for Master Volume
+    window.addEventListener('keydown', (ev) => {
+        const k = ev.key;
+        const isUp = k === 'ArrowUp' || k === 'Up';
+        const isDown = k === 'ArrowDown' || k === 'Down';
+
+        if (isUp || isDown) {
+            // Check if focus is in an input field
+            const t = (ev.target.tagName || '').toUpperCase();
+            if (t === 'INPUT' || t === 'TEXTAREA' || ev.target.isContentEditable) return;
+
+            ev.preventDefault();
+            const step = 0.5;
+
+            // Safety check for currentMasterDb
+            if (typeof currentMasterDb !== 'number' || isNaN(currentMasterDb)) {
+                currentMasterDb = -20.0;
+            }
+
+            let newVal = currentMasterDb + (isUp ? step : -step);
+            // Clamp (min/max should match slider definition)
+            newVal = Math.max(-60.0, Math.min(12.0, newVal));
+            newVal = Math.round(newVal * 10) / 10;
+
+            // Optimistic update
+            currentMasterDb = newVal;
+            const slider = document.getElementById('master-slider');
+            if (slider && typeof slider._setValue === 'function') slider._setValue(newVal);
+
+            sendThrottled({ type: 'set_channel_level', payload: { channel: 'master', level_db: newVal } });
+        }
+    });
 }
 
 export function updateSpectrum(payload) {

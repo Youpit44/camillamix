@@ -100,6 +100,165 @@ export function createSpectrumVisualizer(count = 28) {
     let ctx = null;
     let width = 0;
     let height = 0;
+    // Load saved gain or default to 1.0
+    let userGain = parseFloat(localStorage.getItem('vis_gain') || '1.0');
+    if (isNaN(userGain)) userGain = 1.0;
+
+    // --- Knob Implementation ---
+    function createVisKnob(initialValue, min, max, onChange) {
+        const wrap = document.createElement('div');
+        // Relative positioning for flex layout
+        wrap.className = 'knob-wrap';
+        wrap.style.display = 'flex';
+        wrap.style.flexDirection = 'column';
+        wrap.style.alignItems = 'center';
+        wrap.style.gap = '2px';
+        wrap.style.padding = '4px 0'; // Vertical padding only
+        wrap.style.marginLeft = '4px'; // Spacing from visualizer
+
+        const size = 32;
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', size);
+        svg.setAttribute('height', size);
+        svg.setAttribute('viewBox', '0 0 48 48');
+        svg.style.cursor = 'ns-resize'; // Up/down arrow cursor
+        svg.style.userSelect = 'none';
+
+        const outerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        outerCircle.setAttribute('cx', '24');
+        outerCircle.setAttribute('cy', '24');
+        outerCircle.setAttribute('r', '20');
+        outerCircle.setAttribute('fill', '#1a1a1a'); // Darker background
+        outerCircle.setAttribute('stroke', '#333');
+        outerCircle.setAttribute('stroke-width', '2');
+        svg.appendChild(outerCircle);
+
+        const activeColor = '#2ecc71';
+
+        const arcPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        arcPath.setAttribute('fill', 'none');
+        arcPath.setAttribute('stroke', activeColor);
+        arcPath.setAttribute('stroke-width', '3');
+        arcPath.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(arcPath);
+
+        const indicator = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        indicator.setAttribute('x1', '24');
+        indicator.setAttribute('y1', '24');
+        indicator.setAttribute('x2', '24');
+        indicator.setAttribute('y2', '10');
+        indicator.setAttribute('stroke', '#fff');
+        indicator.setAttribute('stroke-width', '2.5');
+        indicator.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(indicator);
+
+        wrap.appendChild(svg);
+
+        const valueEl = document.createElement('div');
+        valueEl.style.fontSize = '9px';
+        valueEl.style.color = '#777'; // Dimmer text
+        valueEl.style.fontWeight = 'bold';
+        valueEl.style.marginTop = '2px';
+        valueEl.textContent = 'x' + initialValue.toFixed(1);
+        wrap.appendChild(valueEl);
+
+        let currentValue = initialValue;
+        const range = max - min;
+        const startAngle = -135;
+        const endAngle = 135;
+        const angleRange = endAngle - startAngle;
+
+        function updateKnobUI() {
+            const pct = (currentValue - min) / range;
+            const angle = startAngle + pct * angleRange;
+            const rad = (angle * Math.PI) / 180;
+
+            const cx = 24,
+                cy = 24;
+            // Indicator
+            const rInd = 14;
+            const x2 = cx + rInd * Math.sin(rad);
+            const y2 = cy - rInd * Math.cos(rad);
+            indicator.setAttribute('x2', x2);
+            indicator.setAttribute('y2', y2);
+
+            // Arc
+            const startRad = (startAngle * Math.PI) / 180;
+            const rArc = 17;
+            const x1 = cx + rArc * Math.sin(startRad);
+            const y1 = cy - rArc * Math.cos(startRad);
+            const x2arc = cx + rArc * Math.sin(rad);
+            const y2arc = cy - rArc * Math.cos(rad);
+            const largeArc = (angle - startAngle) > 180 ? 1 : 0;
+            const pathD = `M ${x1} ${y1} A ${rArc} ${rArc} 0 ${largeArc} 1 ${x2arc} ${y2arc}`;
+            arcPath.setAttribute('d', pathD);
+
+            valueEl.textContent = 'x' + currentValue.toFixed(1);
+        }
+
+        // Interaction
+        let dragging = false;
+        let startY = 0;
+        let startVal = 0;
+
+        function onPointerDown(e) {
+            e.preventDefault();
+            dragging = true;
+            startY = e.clientY;
+            startVal = currentValue;
+            svg.setPointerCapture(e.pointerId);
+            valueEl.style.color = '#ccc';
+            outerCircle.setAttribute('fill', '#222');
+        }
+
+        function onPointerMove(e) {
+            if (!dragging) return;
+            const dy = startY - e.clientY;
+            const sensitivity = 4.5 / 200;
+            const delta = dy * sensitivity;
+            currentValue = Math.max(min, Math.min(max, startVal + delta));
+            updateKnobUI();
+            if (onChange) onChange(currentValue);
+        }
+
+        function onPointerUp(e) {
+            if (!dragging) return;
+            dragging = false;
+            svg.releasePointerCapture(e.pointerId);
+            valueEl.style.color = '#777';
+            outerCircle.setAttribute('fill', '#1a1a1a');
+        }
+
+        svg.addEventListener('pointerdown', onPointerDown);
+        svg.addEventListener('pointermove', onPointerMove);
+        svg.addEventListener('pointerup', onPointerUp);
+        svg.addEventListener('pointercancel', onPointerUp);
+
+        updateKnobUI();
+        return wrap;
+    }
+
+    // --- Layout ---
+    const container = document.createElement('div');
+    container.style.display = 'flex';
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.alignItems = 'center'; // Vertical align
+
+    // Canvas Wrapper (takes remaining space)
+    wrap.style.flex = '1';
+    wrap.style.height = '100%';
+    wrap.style.width = '0'; // Flexfix
+    wrap.style.position = 'relative';
+
+    const gainKnob = createVisKnob(userGain, 0.5, 5.0, (val) => {
+        userGain = val;
+        localStorage.setItem('vis_gain', val);
+    });
+
+    container.appendChild(wrap);
+    container.appendChild(gainKnob);
 
     // Resize observer to handle responsive layout
     const resizeObserver = new ResizeObserver(entries => {
@@ -118,7 +277,7 @@ export function createSpectrumVisualizer(count = 28) {
     // Send subscribe request
     setTimeout(() => {
         send({ type: 'subscribe_spectrum', payload: { enabled: true } });
-    }, 1000); // 1s delay to ensure socket open (simple approach)
+    }, 1000);
 
 
     let masterDb = -50;
@@ -269,7 +428,7 @@ export function createSpectrumVisualizer(count = 28) {
         ctx.fillStyle = gradient;
 
         for (let i = 0; i < count; i++) {
-            const h = points[i] * height * dynamicFactor * baseBoost;
+            const h = points[i] * height * dynamicFactor * baseBoost * userGain;
             const x = i * (barWidth + 2);
             const y = height - h;
             ctx.fillRect(x, y, barWidth, h);
@@ -291,15 +450,15 @@ export function createSpectrumVisualizer(count = 28) {
         const safeMaster = (typeof masterDb === 'number') ? masterDb : -50;
 
         // Calibration:
-        // At -20dB, we want a gain of ~60 (Balanced between "too small" and "too big")
+        // At -20dB, we want a gain of ~70 (Balanced between "too small" and "too big")
         // We use a modified exponent divisor (30.0) to smooth the growth
         // so it doesn't disappear too fast at low volumes.
         const refDb = -20.0;
-        const baseGain = 60.0;
+        const baseGain = 70.0;
         const dbDiff = safeMaster - refDb; // e.g. 0dB -> +20
         const dynamicFactor = Math.pow(10, dbDiff / 30.0);
 
-        const scaleY = (height / 2) * baseGain * dynamicFactor;
+        const scaleY = (height / 2) * baseGain * dynamicFactor * userGain;
 
         if (useFallback || !currentSamples || currentSamples.length === 0) {
             ctx.shadowBlur = 0; // Reset glow for text
@@ -356,5 +515,5 @@ export function createSpectrumVisualizer(count = 28) {
         requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
-    return { element: wrap, update, receiveData, setMode };
+    return { element: container, update, receiveData, setMode };
 }

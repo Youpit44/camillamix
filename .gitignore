@@ -13,7 +13,6 @@ camillamix/
 active.json
 backend/server_config.json
 backend/presets/*.json
-!backend/presets/autosave.json
 backend/actions.log
 *.log
 
