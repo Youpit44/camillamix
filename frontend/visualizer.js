@@ -109,6 +109,7 @@ export function createSpectrumVisualizer(count = 28) {
             height = rect.height;
             canvas.width = width * window.devicePixelRatio;
             canvas.height = height * window.devicePixelRatio;
+            if (!ctx) ctx = canvas.getContext('2d');
             if (ctx) ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
         }
     });
@@ -120,30 +121,50 @@ export function createSpectrumVisualizer(count = 28) {
     }, 1000); // 1s delay to ensure socket open (simple approach)
 
 
-    let masterDb = -60;
+    let masterDb = -50;
     const currentBars = new Float32Array(count).fill(-100);
     let useFallback = true;
     let lastUpdate = 0;
+    let lastLevelUpdate = 0;
+
+    // View mode: 'spectrum' | 'waveform' | 'off'
+    let mode = 'spectrum';
+    let currentSamples = null;
+
+    function setMode(newMode) {
+        mode = newMode;
+        if (mode === 'off' && ctx) {
+            ctx.clearRect(0, 0, width, height);
+        }
+    }
 
     function update(val) {
         if (Date.now() - lastUpdate > 1000) {
             useFallback = true;
         }
+
+        // Always update masterDb (needed for visual scaling)
+        if (typeof val === 'number') {
+            masterDb = val;
+        } else if (Array.isArray(val)) {
+            masterDb = Math.max(...val);
+        }
+
         if (useFallback) {
-            if (typeof val === 'number') {
-                masterDb = val;
-            } else if (Array.isArray(val)) {
-                masterDb = Math.max(...val);
-            }
+            lastLevelUpdate = Date.now();
         }
     }
 
     function mapToBars(spectrumDb) {
         const numBins = spectrumDb.length;
-        // skip DC (0) and Nyquist slightly
-        // Map log freq
-        const minIdx = 1;
-        const maxIdx = numBins - 1;
+
+        // Freq range settings (approx for 44.1/48k)
+        // Bin 0 = DC, Bin 1 ~ 11Hz
+        const minIdx = 3; // ~33Hz 
+        const maxIdx = Math.min(numBins - 1, 1500); // ~16kHz
+
+        // 3dB/octave tilt compensation (Pink Noise)
+        const tiltPerOctave = 3.0;
 
         // Log scale: bin = exp( log(min) + p * (log(max)-log(min)) )
         const logMin = Math.log(minIdx);
@@ -162,14 +183,19 @@ export function createSpectrumVisualizer(count = 28) {
 
             let maxVal = -120;
             for (let k = idx1; k <= idx2; k++) {
-                if (spectrumDb[k] > maxVal) maxVal = spectrumDb[k];
+                // Apply tilt: roughly log2(k) * slope
+                // We normalize to minIdx to have 0 tilt at bottom
+                const octaves = Math.log2(k / minIdx);
+                const tilt = octaves * tiltPerOctave;
+                const val = spectrumDb[k] + tilt;
+                if (val > maxVal) maxVal = val;
             }
 
             // Smoothing
             if (maxVal > currentBars[i]) {
                 currentBars[i] += (maxVal - currentBars[i]) * 0.5;
             } else {
-                currentBars[i] += (maxVal - currentBars[i]) * 0.15;
+                currentBars[i] += (maxVal - currentBars[i]) * 0.2; // Slightly faster decay
             }
         }
     }
@@ -178,10 +204,136 @@ export function createSpectrumVisualizer(count = 28) {
         if (payload.samples) {
             useFallback = false;
             lastUpdate = Date.now();
-            const spec = computeSpectrum(payload.samples);
-            mapToBars(spec);
+
+            // Store reference/copy of samples
+            currentSamples = payload.samples;
+
+            if (mode === 'spectrum') {
+                const spec = computeSpectrum(payload.samples);
+                mapToBars(spec);
+            }
         }
     }
+
+    function drawSpectrum(width, height, barWidth) {
+        const points = [];
+        for (let i = 0; i < count; i++) {
+            let val = 0;
+            if (useFallback) {
+                // Fallback (simulation)
+                const db = currentBars[i];
+
+                if (useFallback) {
+                    const now = performance.now();
+                    const masterMag = Math.min(1, Math.max(0, (masterDb + 100) / 100)); // 0..1 based on -100..0dB
+
+                    const p = i / (count - 1);
+                    const shape = 1.0 - (p * 0.5);
+                    const speed = 0.002 + (p * 0.005);
+                    const n1 = Math.sin((now * speed) + i);
+                    const noise = (n1 + 2) / 3;
+                    let targetH = Math.pow(masterMag, 1.2) * shape * (0.3 + noise * 0.7);
+
+                    if (targetH > ((currentBars[i] + 100) / 100)) currentBars[i] = (targetH * 100) - 100;
+                    else currentBars[i] -= 2.0;
+                    if (currentBars[i] < -100) currentBars[i] = -100;
+                }
+                const safeDb = Math.max(-100, currentBars[i]);
+                val = (safeDb + 100) / 100;
+            } else {
+                // Real Data
+                const safeDb = Math.max(-100, currentBars[i]);
+                val = (safeDb + 100) / 100;
+            }
+            points.push(val);
+        }
+
+        // -------------------------------------------------------------
+        // DRAW BARS (Not lines) - Restoring ORIGINAL behavior
+        // -------------------------------------------------------------
+
+        // Dynamic scaling based on Master Volume (SAME AS WAVEFORM)
+        const safeMaster = (typeof masterDb === 'number') ? masterDb : -50;
+        const refDb = -20.0;
+        // Boost base height at -20dB (x1.5)
+        const baseBoost = 1.5;
+        const dbDiff = safeMaster - refDb;
+        const dynamicFactor = Math.pow(10, dbDiff / 30.0);
+
+        // Create Gradient (Green -> Yellow -> Red)
+        const gradient = ctx.createLinearGradient(0, height, 0, 0);
+        gradient.addColorStop(0, '#2ecc71'); // Green bottom
+        gradient.addColorStop(0.6, '#f1c40f'); // Yellow mid
+        gradient.addColorStop(1, '#e74c3c'); // Red top
+
+        ctx.fillStyle = gradient;
+
+        for (let i = 0; i < count; i++) {
+            const h = points[i] * height * dynamicFactor * baseBoost;
+            const x = i * (barWidth + 2);
+            const y = height - h;
+            ctx.fillRect(x, y, barWidth, h);
+        }
+    }
+
+    function drawWaveform(width, height) {
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#2ecc71';
+        // Add glow/shadow for more "volume"
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = '#2ecc71';
+
+        ctx.beginPath();
+
+        const midY = height / 2;
+
+        // Dynamic Amplification
+        const safeMaster = (typeof masterDb === 'number') ? masterDb : -50;
+
+        // Calibration:
+        // At -20dB, we want a gain of ~60 (Balanced between "too small" and "too big")
+        // We use a modified exponent divisor (30.0) to smooth the growth
+        // so it doesn't disappear too fast at low volumes.
+        const refDb = -20.0;
+        const baseGain = 60.0;
+        const dbDiff = safeMaster - refDb; // e.g. 0dB -> +20
+        const dynamicFactor = Math.pow(10, dbDiff / 30.0);
+
+        const scaleY = (height / 2) * baseGain * dynamicFactor;
+
+        if (useFallback || !currentSamples || currentSamples.length === 0) {
+            ctx.shadowBlur = 0; // Reset glow for text
+            // Draw a flat line + text
+            ctx.strokeStyle = '#666';
+            ctx.moveTo(0, midY);
+            ctx.lineTo(width, midY);
+            ctx.stroke();
+
+            ctx.fillStyle = '#aaa';
+            ctx.font = '12px sans-serif';
+            ctx.fillText('Waiting for signal...', 10, 20);
+            return;
+        }
+
+        const len = currentSamples.length;
+        // Interpolate across width
+        const ratio = len / width;
+
+        for (let x = 0; x < width; x++) {
+            const idx = Math.floor(x * ratio);
+            const val = currentSamples[idx >= len ? len - 1 : idx];
+
+            const y = midY - (val * scaleY);
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Reset properties
+        ctx.shadowBlur = 0;
+    }
+
+    let lastLog = 0;
 
     function tick() {
         if (!ctx) {
@@ -193,50 +345,16 @@ export function createSpectrumVisualizer(count = 28) {
         }
 
         ctx.clearRect(0, 0, width, height);
-        const barWidth = (width / count) - 2;
 
-        // Gradient
-        const gradient = ctx.createLinearGradient(0, height, 0, 0);
-        gradient.addColorStop(0, '#2ecc71');
-        gradient.addColorStop(0.5, '#f1c40f');
-        gradient.addColorStop(1, '#e74c3c');
-        ctx.fillStyle = gradient;
-
-        if (useFallback) {
-            // Fallback animation
-            const now = performance.now();
-            // Updated scale: -80dB to 0dB
-            const masterMag = Math.min(1, Math.max(0, (masterDb + 80) / 80));
-            for (let i = 0; i < count; i++) {
-                const p = i / (count - 1);
-                const shape = 1.0 - (p * 0.6);
-                const speed = 0.002 + (p * 0.008);
-                const n1 = Math.sin((now * speed) + i);
-                const n2 = Math.cos((now * speed * 1.3) + (i * 0.5));
-                const noise = (n1 + n2 + 2) / 4;
-                let targetH = Math.pow(masterMag, 1.5) * shape * (0.5 + noise);
-
-                // Reusing currentBars for fallback smoothing
-                if (targetH > currentBars[i]) currentBars[i] += (targetH - currentBars[i]) * 0.3;
-                else currentBars[i] += (targetH - currentBars[i]) * 0.1;
-
-                const h = Math.max(0.01, Math.min(1, currentBars[i]));
-                ctx.fillRect(i * (barWidth + 2), height - (h * height), barWidth, h * height);
-            }
-        } else {
-            // Real spectrum
-            // Range: currentBars is in dB, from -100 to 0. (Usually -120 to 0)
-            // Normalize: -80dB -> 0, 0dB -> 1
-            for (let i = 0; i < count; i++) {
-                const db = currentBars[i];
-                let h = (db + 80) / 80;
-                h = Math.max(0.01, Math.min(1, h));
-                ctx.fillRect(i * (barWidth + 2), height - (h * height), barWidth, h * height);
-            }
+        if (mode === 'spectrum') {
+            const barWidth = (width / count) - 2;
+            drawSpectrum(width, height, barWidth);
+        } else if (mode === 'waveform') {
+            drawWaveform(width, height);
         }
 
         requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
-    return { element: wrap, update, receiveData };
+    return { element: wrap, update, receiveData, setMode };
 }

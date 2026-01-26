@@ -1,42 +1,45 @@
 <!doctype html>
 <html lang="fr">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CamillaMixer</title>
-  <link rel="stylesheet" href="/style.css?v=2">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CamillaMixer</title>
+    <link rel="stylesheet" href="/style.css?v=2">
 </head>
+
 <body>
-  <div class="header">
-    <h1>CamillaMixer (prototype)</h1>
-    <div id="statusBar" class="status-bar">
-      <div class="status-item">
-        <span class="status-led" id="wsStatusLed"></span>
-        <span class="status-text" id="wsStatusText">WebSocket</span>
-      </div>
-      <div class="status-item">
-        <span class="status-led" id="camillaStatusLed"></span>
-        <span class="status-text" id="camillaStatusText">CamillaDSP</span>
-      </div>
+    <div class="header">
+        <h1>CamillaMixer (prototype)</h1>
+        <div id="controls" class="controls">
+            <label for="presetName">Preset:</label>
+            <input id="presetName" placeholder="MonPreset" style="width:140px">
+        </div>
+        <div id="statusBar" class="status-bar">
+            <div class="status-item">
+                <span class="status-led" id="wsStatusLed"></span>
+                <span class="status-text" id="wsStatusText">WebSocket</span>
+            </div>
+            <div class="status-item">
+                <span class="status-led" id="camillaStatusLed"></span>
+                <span class="status-text" id="camillaStatusText">CamillaDSP</span>
+            </div>
+        </div>
     </div>
-  </div>
-  <div id="controls" class="controls">
-    <label for="presetName">Preset:</label>
-    <input id="presetName" placeholder="MonPreset" style="width:140px">
-  </div>
-  <!-- Hidden elements for presets/import/export (controlled by options modal) -->
-  <select id="presetList" style="display:none"></select>
-  <input id="importFile" type="file" accept="application/json" style="display:none" />
-  <input id="importYaml" type="file" accept=".yml,.yaml,text/yaml" style="display:none" />
+    <!-- Hidden elements for presets/import/export (controlled by options modal) -->
+    <select id="presetList" style="display:none"></select>
+    <input id="importFile" type="file" accept="application/json" style="display:none" />
+    <input id="importYaml" type="file" accept=".yml,.yaml,text/yaml" style="display:none" />
 
-  <!-- Spectrum output visualizer -->
-  <div id="spectrumContainer" class="spectrum-container"></div>
+    <!-- Spectrum output visualizer -->
+    <div id="spectrumContainer" class="spectrum-container"></div>
 
-  <div class="mixer-container">
-    <div id="mixer" class="mixer"></div>
-    <div id="master" class="master"></div>
-  </div>
+    <div class="mixer-container">
+        <div id="mixer" class="mixer"></div>
+        <div id="master" class="master"></div>
+    </div>
 
-  <script type="module" src="app.js?v=24"></script>
+    <script type="module" src="app.js?v=47"></script>
 </body>
+
 </html>

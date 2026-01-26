@@ -902,6 +902,63 @@ export function openOptionsModal() {
     autosaveSec.appendChild(autoInp);
     modal.appendChild(autosaveSec);
 
+    // -- Visualizer Settings --
+    const vizSec = document.createElement('div');
+    vizSec.className = 'modal-section';
+
+    const vizTitle = document.createElement('div');
+    vizTitle.textContent = 'Visualisation:';
+    vizTitle.style.color = '#ddd';
+    vizTitle.style.fontSize = '13px';
+    vizTitle.style.marginRight = '8px';
+
+    const vizSelect = document.createElement('select');
+    vizSelect.id = 'optVizMode';
+    vizSelect.style.padding = '4px';
+    vizSelect.style.borderRadius = '4px';
+    vizSelect.style.background = '#0f0f0f';
+    vizSelect.style.color = '#eee';
+    vizSelect.style.border = '1px solid #333';
+
+    const opts = [
+        { val: 'spectrum', text: 'Spectrum (Barres)' },
+        { val: 'waveform', text: 'Waveform (Graphique)' },
+        { val: 'off', text: 'Désactivé' }
+    ];
+    opts.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.val;
+        opt.textContent = o.text;
+        vizSelect.appendChild(opt);
+    });
+
+    // Default or current value (if stored/global)
+    // We'll rely on global 'masterSpectrum' to set/get
+    if (masterSpectrum && typeof masterSpectrum.setMode === 'function') {
+        // We don't have a direct getState, but we can assume default 'spectrum'
+        // Or specific handling in loadOptions
+    }
+
+    vizSelect.addEventListener('change', (e) => {
+        if (masterSpectrum && typeof masterSpectrum.setMode === 'function') {
+            masterSpectrum.setMode(e.target.value);
+            // Optionally save this preference to localStorage?
+            localStorage.setItem('vizMode', e.target.value);
+        }
+    });
+
+    // Init from localStorage
+    const savedMode = localStorage.getItem('vizMode');
+    if (savedMode) {
+        vizSelect.value = savedMode;
+        if (masterSpectrum) masterSpectrum.setMode(savedMode);
+    }
+
+    vizSec.appendChild(vizTitle);
+    vizSec.appendChild(vizSelect);
+    modal.appendChild(vizSec);
+    // -- End Viz Settings --
+
     const dbgSec = document.createElement('div');
     dbgSec.className = 'modal-section';
     const dbgChk = document.createElement('input');
@@ -1244,9 +1301,15 @@ export function initUI() {
     // Spectrum Visualizer
     const spectrumContainer = document.getElementById('spectrumContainer');
     if (spectrumContainer) {
-        const spectrum = createSpectrumVisualizer(28);
+        const spectrum = createSpectrumVisualizer(64);
         spectrumContainer.appendChild(spectrum.element);
         masterSpectrum = spectrum;
+
+        // Restore saved mode
+        const savedMode = localStorage.getItem('vizMode');
+        if (savedMode && spectrum.setMode) {
+            spectrum.setMode(savedMode);
+        }
     }
 
     // Controls (Options button)
