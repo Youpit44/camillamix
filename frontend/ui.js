@@ -227,9 +227,38 @@ function createMasterSection() {
     vu.appendChild(vum);
     leftCol.appendChild(vu);
 
-    const spacer = document.createElement('div');
-    spacer.style.height = '46px';
-    leftCol.appendChild(spacer);
+    const muteBtn = document.createElement('button');
+    muteBtn.className = 'btn small icon';
+    muteBtn.id = 'master-mute-btn';
+    muteBtn.title = 'Push to Mute';
+    muteBtn.style.margin = '10px 0';
+    muteBtn.innerHTML = '<svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 10v4h4l5 5V5L7 10H3z" fill="#ddd"/><line x1="18" y1="6" x2="6" y2="18" stroke="#c0392b" stroke-width="2" stroke-linecap="round"/></svg>';
+
+    // Push-to-mute logic (Momentary)
+    const setMute = (mute) => {
+        if (mute) muteBtn.classList.add('state-on');
+        else muteBtn.classList.remove('state-on');
+        send({ type: 'set_channel_mute', payload: { channel: 'master', mute: !!mute } });
+    };
+
+    muteBtn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        setMute(true);
+        try { muteBtn.setPointerCapture(e.pointerId); } catch (ex) {}
+    });
+
+    muteBtn.addEventListener('pointerup', (e) => {
+        e.preventDefault();
+        setMute(false);
+        try { muteBtn.releasePointerCapture(e.pointerId); } catch (ex) {}
+    });
+
+    muteBtn.addEventListener('pointercancel', (e) => {
+        setMute(false);
+        try { muteBtn.releasePointerCapture(e.pointerId); } catch (ex) {}
+    });
+
+    leftCol.appendChild(muteBtn);
 
     const faderWrap = document.createElement('div');
     faderWrap.className = 'fader-wrapper';
@@ -693,6 +722,12 @@ export function applyState(state) {
         const masterSlider = document.querySelector('#master-slider');
         if (masterSlider && typeof masterSlider._setValue === 'function') {
             if (!masterSlider._dragState) masterSlider._setValue(state.master.level_db || 0);
+        }
+
+        const masterMuteBtn = document.getElementById('master-mute-btn');
+        if (masterMuteBtn) {
+            if (state.master.mute) masterMuteBtn.classList.add('state-on');
+            else masterMuteBtn.classList.remove('state-on');
         }
     }
     (state.channels || []).forEach((ch, i) => {
